@@ -81,13 +81,8 @@ export default function ListenerPage() {
     useEffect(() => {
         if (audioRef.current && remoteStream) {
             audioRef.current.srcObject = remoteStream;
-            // Try to play automatically
-            audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(e => {
-                    console.log("Autoplay blocked, waiting for interaction", e);
-                    setIsPlaying(false);
-                });
+            // Do NOT attempt autoplay - it causes issues on iOS where the button disappears
+            // Users must explicitly click "Start Listening"
         }
     }, [remoteStream]);
 
