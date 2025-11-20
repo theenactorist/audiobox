@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, Button, CopyButton, Alert } from '@mantine/core';
-import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle } from '@tabler/icons-react';
+import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle, IconX, IconDownload } from '@tabler/icons-react';
 import { useListen } from '@/lib/webrtc/useListen';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
 
@@ -17,12 +17,24 @@ export default function ListenerPage() {
     const [volume, setVolume] = useState(80);
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [showInstallBanner, setShowInstallBanner] = useState(false);
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
     const { remoteStream, status, streamMetadata } = useListen(streamId);
     const audioRef = useRef<HTMLVideoElement>(null);
 
     const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+    // Detect if user should see install banner
+    useEffect(() => {
+        const isAndroid = /android/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        const wasDismissed = localStorage.getItem('installBannerDismissed');
+
+        if (isAndroid && !isStandalone && !wasDismissed) {
+            setShowInstallBanner(true);
+        }
+    }, []);
 
     // Setup Media Session API for background playback
     useEffect(() => {
@@ -114,6 +126,11 @@ export default function ListenerPage() {
         }
     };
 
+    const dismissInstallBanner = () => {
+        setShowInstallBanner(false);
+        localStorage.setItem('installBannerDismissed', 'true');
+    };
+
     const getStatusBadge = () => {
         if (status === 'not-found') return { color: 'gray', text: 'OFFLINE' };
         if (status === 'connected') return { color: 'green', text: 'LIVE' };
@@ -144,6 +161,19 @@ export default function ListenerPage() {
                     {status === 'not-found' && (
                         <Alert icon={<IconAlertCircle size={20} />} title="Stream Not Available" color="gray">
                             This audio livestream hasn&apos;t started yet. Please check back later or contact the broadcaster.
+                        </Alert>
+                    )}
+
+                    {/* Install Banner for Android */}
+                    {showInstallBanner && (
+                        <Alert
+                            icon={<IconDownload size={20} />}
+                            title="Better Background Audio"
+                            color="blue"
+                            withCloseButton
+                            onClose={dismissInstallBanner}
+                        >
+                            For uninterrupted audio when your screen is locked, tap the menu (⋮) and select &quot;Add to Home screen&quot; or &quot;Install app&quot;.
                         </Alert>
                     )}
 
