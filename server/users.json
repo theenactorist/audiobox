@@ -1,0 +1,9 @@
+[
+  {
+    "id": "1763678112858",
+    "email": "testuser@example.com",
+    "password": "$2b$10$CV3mi85kqaiMjxdPcB6B6u9CTvFECmo75h11DBBQaBvj/Ew.sPdbe",
+    "securityQuestion": "What was the name of your first pet?",
+    "securityAnswer": "$2b$10$GF0Ci4fV5/.DlP6CQu/ouO9d./demBPGYB47tV0WgKP8CTT0rmBmS"
+  }
+]

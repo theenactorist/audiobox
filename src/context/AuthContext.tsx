@@ -52,21 +52,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const register = async (email: string, password: string, securityQuestion: string, securityAnswer: string) => {
         const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
-        const res = await fetch(`${baseUrl}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, securityQuestion, securityAnswer }),
-        });
+        console.log('Registering with URL:', `${baseUrl}/api/auth/register`);
 
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.error || 'Registration failed');
+        try {
+            const res = await fetch(`${baseUrl}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, securityQuestion, securityAnswer }),
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.error || 'Registration failed');
+            }
+
+            const data = await res.json();
+            setUser(data.user);
+            localStorage.setItem('audio_stream_user', JSON.stringify(data.user));
+            router.push('/studio');
+        } catch (error) {
+            console.error('Registration error:', error);
+            throw error;
         }
-
-        const data = await res.json();
-        setUser(data.user);
-        localStorage.setItem('audio_stream_user', JSON.stringify(data.user));
-        router.push('/studio');
     };
 
     const recover = async (email: string, securityAnswer: string, newPassword: string) => {

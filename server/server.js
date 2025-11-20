@@ -10,7 +10,10 @@ const httpServer = createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+
     if (req.method === 'OPTIONS') {
+        console.log('Handling OPTIONS request');
         res.writeHead(200);
         res.end();
         return;
