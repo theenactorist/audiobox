@@ -16,7 +16,7 @@ export default function ListenerPage() {
     const wakeLockRef = useRef<any>(null);
 
     const { remoteStream, status } = useListen(streamId);
-    const audioRef = useRef<HTMLAudioElement>(null);
+    const audioRef = useRef<HTMLVideoElement>(null);
 
     // Setup Media Session API for background playback
     useEffect(() => {
@@ -100,7 +100,13 @@ export default function ListenerPage() {
 
     return (
         <Container size="sm" py="xl" style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <audio ref={audioRef} playsInline />
+            {/* Use video element for iOS WebRTC compatibility, but hide it */}
+            <video
+                ref={audioRef as any}
+                playsInline
+                muted={false}
+                style={{ display: 'none' }}
+            />
             <Card withBorder padding="xl" radius="lg">
                 <Stack gap="lg">
                     <Group justify="space-between">
