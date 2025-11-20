@@ -1,0 +1,15 @@
+{
+    "name": "audio-livestream-signaling-server",
+    "version": "1.0.0",
+    "description": "WebRTC signaling server for high-fidelity audio streaming",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "socket.io": "^4.8.1"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
