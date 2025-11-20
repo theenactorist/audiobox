@@ -32,7 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const login = async (email: string, password: string) => {
-        const res = await fetch('/api/auth/login', {
+        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const res = await fetch(`${baseUrl}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -50,7 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const register = async (email: string, password: string, securityQuestion: string, securityAnswer: string) => {
-        const res = await fetch('/api/auth/register', {
+        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const res = await fetch(`${baseUrl}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, securityQuestion, securityAnswer }),
@@ -68,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const recover = async (email: string, securityAnswer: string, newPassword: string) => {
-        const res = await fetch('/api/auth/recover', {
+        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const res = await fetch(`${baseUrl}/api/auth/recover`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, securityAnswer, newPassword }),
@@ -81,7 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const getSecurityQuestion = async (email: string) => {
-        const res = await fetch(`/api/auth/question?email=${encodeURIComponent(email)}`);
+        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const res = await fetch(`${baseUrl}/api/auth/question?email=${encodeURIComponent(email)}`);
         if (!res.ok) {
             throw new Error('User not found');
         }

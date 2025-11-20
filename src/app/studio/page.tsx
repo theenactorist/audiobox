@@ -38,7 +38,8 @@ export default function StudioPage() {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const response = await fetch(`/api/stream-history?userId=${user?.id}`);
+                const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+                const response = await fetch(`${baseUrl}/api/history?userId=${user?.id}`);
                 const data = await response.json();
                 setHistoryData(data);
             } catch (err) {
@@ -111,7 +112,8 @@ export default function StudioPage() {
         // Refresh history after stopping
         setTimeout(async () => {
             try {
-                const response = await fetch(`/api/stream-history?userId=${user?.id}`);
+                const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+                const response = await fetch(`${baseUrl}/api/history?userId=${user?.id}`);
                 const data = await response.json();
                 setHistoryData(data);
             } catch (err) {
