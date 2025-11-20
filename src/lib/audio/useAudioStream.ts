@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { AUDIO_CONFIG } from '@/lib/webrtc/constants';
 
 export interface AudioStreamConfig {
     deviceId?: string;
@@ -20,11 +21,8 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             const constraints: MediaStreamConstraints = {
                 audio: {
                     deviceId: deviceId ? { exact: deviceId } : undefined,
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    channelCount: 2,
-                    sampleRate: config.sampleRate || 48000,
+                    ...AUDIO_CONFIG,
+                    sampleRate: config.sampleRate || AUDIO_CONFIG.sampleRate,
                 },
                 video: false,
             };

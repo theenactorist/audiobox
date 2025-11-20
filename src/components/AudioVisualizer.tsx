@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 
 interface AudioVisualizerProps {
     stream: MediaStream | null;
@@ -6,7 +6,7 @@ interface AudioVisualizerProps {
     height?: number;
 }
 
-export function AudioVisualizer({ stream, width = 600, height = 150 }: AudioVisualizerProps) {
+function AudioVisualizerComponent({ stream, width = 600, height = 150 }: AudioVisualizerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -80,3 +80,5 @@ export function AudioVisualizer({ stream, width = 600, height = 150 }: AudioVisu
 
     return <canvas ref={canvasRef} width={width} height={height} style={{ borderRadius: '8px', width: '100%', height: 'auto', maxWidth: width }} />;
 }
+
+export const AudioVisualizer = memo(AudioVisualizerComponent);

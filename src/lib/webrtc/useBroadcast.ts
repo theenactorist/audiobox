@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-
-const RTC_CONFIG = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-    ],
-};
+import { RTC_CONFIG } from './constants';
 
 export function useBroadcast(stream: MediaStream | null, streamId: string, title?: string, description?: string) {
     const socketRef = useRef<Socket | null>(null);
