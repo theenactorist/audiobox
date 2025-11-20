@@ -44,22 +44,9 @@ export default function StudioPage() {
             }
         };
         fetchHistory();
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchHistory, 30000);
-        return () => clearInterval(interval);
     }, []);
 
     if (!user) return null;
-
-    // Request permission on mount to get device labels
-    useEffect(() => {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                stream.getTracks().forEach(t => t.stop());
-                navigator.mediaDevices.dispatchEvent(new Event('devicechange'));
-            })
-            .catch(err => console.error('Permission denied:', err));
-    }, []);
 
     // Auto-select first device
     useEffect(() => {
