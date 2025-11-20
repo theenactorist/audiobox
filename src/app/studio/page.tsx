@@ -26,7 +26,7 @@ export default function StudioPage() {
     const devices = useAudioDevices();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { stream, startStream } = useAudioStream();
-    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description);
+    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
 
     useEffect(() => {
         if (!user) {
@@ -38,7 +38,7 @@ export default function StudioPage() {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const response = await fetch('/api/stream-history');
+                const response = await fetch(`/api/stream-history?userId=${user?.id}`);
                 const data = await response.json();
                 setHistoryData(data);
             } catch (err) {
@@ -111,7 +111,7 @@ export default function StudioPage() {
         // Refresh history after stopping
         setTimeout(async () => {
             try {
-                const response = await fetch('/api/stream-history');
+                const response = await fetch(`/api/stream-history?userId=${user?.id}`);
                 const data = await response.json();
                 setHistoryData(data);
             } catch (err) {
