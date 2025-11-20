@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Avatar } from '@mantine/core';
-import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout } from '@tabler/icons-react';
+import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Avatar, Slider } from '@mantine/core';
+import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
@@ -25,7 +25,7 @@ export default function StudioPage() {
 
     const devices = useAudioDevices();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { stream, startStream } = useAudioStream();
+    const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
     const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
 
     useEffect(() => {
@@ -230,8 +230,35 @@ export default function StudioPage() {
                                     leftSection={<IconMicrophone size={16} />}
                                 />
 
+                                {/* Volume Controls */}
+                                <Stack gap="xs">
+                                    <Group justify="space-between">
+                                        <Text size="sm" fw={500}>Volume Control</Text>
+                                        <Tooltip label={isMuted ? "Unmute" : "Mute"}>
+                                            <ActionIcon
+                                                color={isMuted ? "red" : "blue"}
+                                                variant={isMuted ? "filled" : "light"}
+                                                onClick={toggleMute}
+                                                size="lg"
+                                            >
+                                                {isMuted ? <IconVolumeOff size={20} /> : <IconVolume size={20} />}
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    </Group>
+                                    <Slider
+                                        value={isMuted ? 0 : volume * 100}
+                                        onChange={(val) => updateVolume(val / 100)}
+                                        marks={[
+                                            { value: 0, label: '0%' },
+                                            { value: 50, label: '50%' },
+                                            { value: 100, label: '100%' },
+                                        ]}
+                                        disabled={isMuted}
+                                    />
+                                </Stack>
+
                                 {!isLive && (
-                                    <Button color="green" size="lg" onClick={handleGoLive} disabled={!stream} fullWidth mt="md">
+                                    <Button fullWidth leftSection={<IconMicrophone />} size="lg" onClick={handleGoLive}>
                                         Go Live
                                     </Button>
                                 )}
