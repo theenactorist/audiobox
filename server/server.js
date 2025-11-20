@@ -95,11 +95,18 @@ io.on('connection', (socket) => {
                 broadcaster.peakListeners = broadcaster.currentListeners;
             }
 
+            // Send stream metadata to the listener
+            socket.emit('stream-metadata', {
+                title: broadcaster.title,
+                description: broadcaster.description,
+                startTime: broadcaster.startTime
+            });
+
             // Notify broadcaster about new listener
             io.to(broadcaster.socketId).emit('watcher', socket.id);
             console.log(`Listener ${socket.id} joined stream ${streamId}. Current: ${broadcaster.currentListeners}`);
         } else {
-            socket.emit('error', 'Stream not found');
+            socket.emit('stream-not-found', { streamId });
         }
     });
 

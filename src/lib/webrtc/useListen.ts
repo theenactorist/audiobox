@@ -11,7 +11,8 @@ export function useListen(streamId: string) {
     const socketRef = useRef<Socket | null>(null);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-    const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+    const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'not-found'>('disconnected');
+    const [streamMetadata, setStreamMetadata] = useState<{ title: string; description: string; startTime: string } | null>(null);
 
     useEffect(() => {
         setStatus('connecting');
@@ -20,6 +21,16 @@ export function useListen(streamId: string) {
         const socket = socketRef.current;
 
         socket.emit('join-stream', streamId);
+
+        // Receive stream metadata
+        socket.on('stream-metadata', (metadata) => {
+            setStreamMetadata(metadata);
+        });
+
+        // Handle stream not found
+        socket.on('stream-not-found', () => {
+            setStatus('not-found');
+        });
 
         socket.on('offer', async (id, description) => {
             const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -58,5 +69,5 @@ export function useListen(streamId: string) {
         };
     }, [streamId]);
 
-    return { remoteStream, status };
+    return { remoteStream, status, streamMetadata };
 }

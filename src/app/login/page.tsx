@@ -7,35 +7,12 @@ import Link from 'next/link';
 
 export default function LoginPage() {
     const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setLoading(true);
-
-        try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error || 'Invalid credentials');
-                setLoading(false);
-                return;
-            }
-
-            login(data.user.username);
-        } catch (err) {
-            setError('Login failed. Please try again.');
-            setLoading(false);
+        if (username.trim()) {
+            login(username);
         }
     };
 
@@ -48,25 +25,20 @@ export default function LoginPage() {
             <Paper withBorder shadow="md" p={30} mt={30} radius="md">
                 <form onSubmit={handleSubmit}>
                     <Stack>
-                        {error && <Text c="red" size="sm">{error}</Text>}
                         <TextInput
                             label="Username"
-                            placeholder="Your username"
+                            placeholder="Your creator handle"
                             required
                             value={username}
                             onChange={(e) => setUsername(e.currentTarget.value)}
-                            disabled={loading}
                         />
                         <TextInput
                             label="Password"
                             placeholder="Your password"
                             required
                             type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.currentTarget.value)}
-                            disabled={loading}
                         />
-                        <Button fullWidth mt="xl" type="submit" loading={loading}>
+                        <Button fullWidth mt="xl" type="submit">
                             Sign in
                         </Button>
                     </Stack>
@@ -74,7 +46,10 @@ export default function LoginPage() {
             </Paper>
 
             <Text c="dimmed" size="sm" ta="center" mt={5}>
-                This is a private broadcasting platform.
+                Don&apos;t have an account?{' '}
+                <Anchor component={Link} href="/signup" size="sm">
+                    Create account
+                </Anchor>
             </Text>
         </Container>
     );
