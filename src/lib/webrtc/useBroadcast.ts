@@ -7,7 +7,7 @@ const RTC_CONFIG = {
     ],
 };
 
-export function useBroadcast(stream: MediaStream | null, streamId: string) {
+export function useBroadcast(stream: MediaStream | null, streamId: string, title?: string, description?: string) {
     const socketRef = useRef<Socket | null>(null);
     const peerConnections = useRef<{ [socketId: string]: RTCPeerConnection }>({});
     const [listenerCount, setListenerCount] = useState(0);
@@ -19,7 +19,7 @@ export function useBroadcast(stream: MediaStream | null, streamId: string) {
         socketRef.current = io(socketUrl);
         const socket = socketRef.current;
 
-        socket.emit('start-stream', streamId);
+        socket.emit('start-stream', { streamId, title, description });
 
         socket.on('watcher', async (id) => {
             const pc = new RTCPeerConnection(RTC_CONFIG);

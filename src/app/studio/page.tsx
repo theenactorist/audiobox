@@ -20,6 +20,7 @@ export default function StudioPage() {
     const [streamId, setStreamId] = useState('demo'); // Default ID for MVP
     const [startTime, setStartTime] = useState<Date | null>(null);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
+    const [historyData, setHistoryData] = useState<any[]>([]);
 
     useEffect(() => {
         if (!user) {
@@ -29,7 +30,24 @@ export default function StudioPage() {
 
     const devices = useAudioDevices();
     const { stream, error, startStream, stopStream } = useAudioStream();
-    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId);
+    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description);
+
+    // Fetch stream history
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                const response = await fetch('/api/stream-history');
+                const data = await response.json();
+                setHistoryData(data);
+            } catch (err) {
+                console.error('Failed to fetch history:', err);
+            }
+        };
+        fetchHistory();
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchHistory, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     if (!user) return null;
 
@@ -85,17 +103,32 @@ export default function StudioPage() {
         setIsLive(false);
         setStartTime(null);
         setElapsedTime('00:00:00');
+        // Refresh history after stopping
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/api/stream-history');
+                const data = await response.json();
+                setHistoryData(data);
+            } catch (err) {
+                console.error('Failed to refresh history:', err);
+            }
+        }, 1000);
     };
 
     const deviceOptions = devices.map(d => ({ value: d.deviceId, label: d.label || `Device ${d.deviceId.slice(0, 5)}...` }));
     const listenLink = typeof window !== 'undefined' ? `${window.location.origin}/listen/${streamId}` : '';
 
-    // Mock History Data
-    const historyData = [
-        { id: 1, title: 'Morning Jazz Session', date: '2023-10-24', duration: '01:30:00', listeners: 45 },
-        { id: 2, title: 'Tech Talk Daily', date: '2023-10-23', duration: '00:45:00', listeners: 120 },
-        { id: 3, title: 'Late Night Lo-Fi', date: '2023-10-22', duration: '02:15:00', listeners: 89 },
-    ];
+    // Format duration from seconds
+    const formatDuration = (seconds: number) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const formatDate = (isoString: string) => {
+        return new Date(isoString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
 
     return (
         <Container size="lg" py="xl">
@@ -196,14 +229,22 @@ export default function StudioPage() {
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
-                                    {historyData.map((row) => (
-                                        <Table.Tr key={row.id}>
-                                            <Table.Td>{row.title}</Table.Td>
-                                            <Table.Td>{row.date}</Table.Td>
-                                            <Table.Td>{row.duration}</Table.Td>
-                                            <Table.Td>{row.listeners}</Table.Td>
+                                    {historyData.length > 0 ? (
+                                        historyData.map((row, index) => (
+                                            <Table.Tr key={index}>
+                                                <Table.Td>{row.title}</Table.Td>
+                                                <Table.Td>{formatDate(row.startTime)}</Table.Td>
+                                                <Table.Td>{formatDuration(row.duration)}</Table.Td>
+                                                <Table.Td>{row.peakListeners}</Table.Td>
+                                            </Table.Tr>
+                                        ))
+                                    ) : (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={4} style={{ textAlign: 'center' }}>
+                                                <Text c="dimmed">No previous broadcasts yet</Text>
+                                            </Table.Td>
                                         </Table.Tr>
-                                    ))}
+                                    )}
                                 </Table.Tbody>
                             </Table>
                         </Card>
