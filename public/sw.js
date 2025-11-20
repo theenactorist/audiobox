@@ -32,21 +32,32 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch Strategy: Network First, then Cache
+// Fetch event - cache-first strategy for static assets
 self.addEventListener('fetch', (event) => {
+    // Only cache GET requests
+    if (event.request.method !== 'GET') {
+        event.respondWith(fetch(event.request));
+        return;
+    }
+
     event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                // Clone the response before caching
-                const responseToCache = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, responseToCache);
-                });
+        caches.match(event.request).then((response) => {
+            if (response) {
                 return response;
-            })
-            .catch(() => {
+            }
+            return fetch(event.request).then((response) => {
+                // Only cache successful responses
+                if (response && response.status === 200) {
+                    return caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, response.clone());
+                        return response;
+                    });
+                }
+                return response;
+            }).catch(() => {
                 return caches.match(event.request);
-            })
+            });
+        })
     );
 });
 
