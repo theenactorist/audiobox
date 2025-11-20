@@ -13,9 +13,63 @@ export default function ListenerPage() {
     const [volume, setVolume] = useState(80);
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const wakeLockRef = useRef<any>(null);
 
     const { remoteStream, status } = useListen(streamId);
     const audioRef = useRef<HTMLAudioElement>(null);
+
+    // Setup Media Session API for background playback
+    useEffect(() => {
+        if ('mediaSession' in navigator && isPlaying) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: `Stream ${streamId}`,
+                artist: 'High-Fidelity Audio Stream',
+                album: 'Live Broadcast',
+                artwork: [
+                    { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+                    { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+                ]
+            });
+
+            navigator.mediaSession.setActionHandler('play', () => {
+                audioRef.current?.play();
+            });
+
+            navigator.mediaSession.setActionHandler('pause', () => {
+                audioRef.current?.pause();
+            });
+
+            navigator.mediaSession.setActionHandler('stop', () => {
+                audioRef.current?.pause();
+                setIsPlaying(false);
+            });
+        }
+    }, [isPlaying, streamId]);
+
+    // Request wake lock to prevent screen sleep
+    useEffect(() => {
+        const requestWakeLock = async () => {
+            try {
+                if ('wakeLock' in navigator && isPlaying) {
+                    wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+                    console.log('Wake lock activated');
+                }
+            } catch (err) {
+                console.log('Wake lock error:', err);
+            }
+        };
+
+        if (isPlaying) {
+            requestWakeLock();
+        }
+
+        return () => {
+            if (wakeLockRef.current) {
+                wakeLockRef.current.release();
+                wakeLockRef.current = null;
+            }
+        };
+    }, [isPlaying]);
 
     useEffect(() => {
         if (audioRef.current && remoteStream) {
