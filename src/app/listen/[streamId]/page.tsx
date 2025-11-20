@@ -2,10 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, Button, CopyButton, Tooltip, Alert } from '@mantine/core';
+import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, Button, CopyButton, Alert } from '@mantine/core';
 import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle } from '@tabler/icons-react';
 import { useListen } from '@/lib/webrtc/useListen';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
+
+interface WakeLockSentinel {
+    release: () => Promise<void>;
+}
 
 export default function ListenerPage() {
     const params = useParams();
@@ -13,7 +17,7 @@ export default function ListenerPage() {
     const [volume, setVolume] = useState(80);
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
-    const wakeLockRef = useRef<any>(null);
+    const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
     const { remoteStream, status, streamMetadata } = useListen(streamId);
     const audioRef = useRef<HTMLVideoElement>(null);
@@ -53,6 +57,7 @@ export default function ListenerPage() {
         const requestWakeLock = async () => {
             try {
                 if ('wakeLock' in navigator && isPlaying) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
                     console.log('Wake lock activated');
                 }
@@ -143,7 +148,7 @@ export default function ListenerPage() {
                     {/* Stream Not Found / Offline Message */}
                     {status === 'not-found' && (
                         <Alert icon={<IconAlertCircle size={20} />} title="Stream Not Available" color="gray">
-                            This audio livestream hasn't started yet. Please check back later or contact the broadcaster.
+                            This audio livestream hasn&apos;t started yet. Please check back later or contact the broadcaster.
                         </Alert>
                     )}
 

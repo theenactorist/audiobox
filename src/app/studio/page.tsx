@@ -17,20 +17,22 @@ export default function StudioPage() {
     const [description, setDescription] = useState('');
     const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
     const [isLive, setIsLive] = useState(false);
-    const [streamId, setStreamId] = useState('demo'); // Default ID for MVP
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [streamId] = useState('demo'); // Default ID for MVP
     const [startTime, setStartTime] = useState<Date | null>(null);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
     const [historyData, setHistoryData] = useState<any[]>([]);
+
+    const devices = useAudioDevices();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { stream, startStream } = useAudioStream();
+    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description);
 
     useEffect(() => {
         if (!user) {
             router.push('/login');
         }
     }, [user, router]);
-
-    const devices = useAudioDevices();
-    const { stream, error, startStream, stopStream } = useAudioStream();
-    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description);
 
     // Fetch stream history
     useEffect(() => {
@@ -43,42 +45,45 @@ export default function StudioPage() {
                 console.error('Failed to fetch history:', err);
             }
         };
-        fetchHistory();
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchHistory, 30000);
-        return () => clearInterval(interval);
-    }, []);
 
-    if (!user) return null;
+        if (user) {
+            fetchHistory();
+            // Refresh every 30 seconds
+            const interval = setInterval(fetchHistory, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [user]);
 
     // Request permission on mount to get device labels
     useEffect(() => {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                stream.getTracks().forEach(t => t.stop());
-                navigator.mediaDevices.dispatchEvent(new Event('devicechange'));
-            })
-            .catch(err => console.error('Permission denied:', err));
-    }, []);
+        if (user) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    stream.getTracks().forEach(t => t.stop());
+                    navigator.mediaDevices.dispatchEvent(new Event('devicechange'));
+                })
+                .catch(err => console.error('Permission denied:', err));
+        }
+    }, [user]);
 
     // Auto-select first device
     useEffect(() => {
-        if (devices.length > 0 && !selectedDevice) {
+        if (user && devices.length > 0 && !selectedDevice) {
             setSelectedDevice(devices[0].deviceId);
         }
-    }, [devices, selectedDevice]);
+    }, [user, devices, selectedDevice]);
 
     // Start monitoring when device changes
     useEffect(() => {
-        if (selectedDevice) {
+        if (user && selectedDevice) {
             startStream(selectedDevice);
         }
-    }, [selectedDevice, startStream]);
+    }, [user, selectedDevice, startStream]);
 
     // Timer logic
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (isLive && startTime) {
+        if (user && isLive && startTime) {
             interval = setInterval(() => {
                 const now = new Date();
                 const diff = now.getTime() - startTime.getTime();
@@ -91,7 +96,7 @@ export default function StudioPage() {
             }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isLive, startTime]);
+    }, [user, isLive, startTime]);
 
     const handleGoLive = () => {
         if (!title) setTitle('Untitled Stream');
@@ -114,6 +119,8 @@ export default function StudioPage() {
             }
         }, 1000);
     };
+
+    if (!user) return null;
 
     const deviceOptions = devices.map(d => ({ value: d.deviceId, label: d.label || `Device ${d.deviceId.slice(0, 5)}...` }));
     const listenLink = typeof window !== 'undefined' ? `${window.location.origin}/listen/${streamId}` : '';

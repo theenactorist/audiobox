@@ -15,6 +15,7 @@ export function useListen(streamId: string) {
     const [streamMetadata, setStreamMetadata] = useState<{ title: string; description: string; startTime: string } | null>(null);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStatus('connecting');
         const socketUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
         socketRef.current = io(socketUrl);

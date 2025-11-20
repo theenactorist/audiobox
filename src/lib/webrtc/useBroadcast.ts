@@ -62,10 +62,11 @@ export function useBroadcast(stream: MediaStream | null, streamId: string, title
 
         return () => {
             socket.disconnect();
-            Object.values(peerConnections.current).forEach(pc => pc.close());
+            const connections = peerConnections.current;
+            Object.values(connections).forEach(pc => pc.close());
             setListenerCount(0);
         };
-    }, [stream, streamId]);
+    }, [stream, streamId, title, description]);
 
     return { listenerCount };
 }
