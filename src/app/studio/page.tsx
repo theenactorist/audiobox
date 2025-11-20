@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid } from '@mantine/core';
-import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop } from '@tabler/icons-react';
+import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Avatar } from '@mantine/core';
+import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
@@ -11,7 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function StudioPage() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const router = useRouter();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -143,13 +143,26 @@ export default function StudioPage() {
         <Container size="lg" py="xl">
             <Group justify="space-between" mb="xl">
                 <Title order={1}>Creator Studio</Title>
-                {isLive && (
-                    <Group>
-                        <Badge color="red" size="xl" variant="filled" leftSection={<span style={{ width: 8, height: 8, borderRadius: '50%', background: 'white', display: 'inline-block', marginRight: 4, animation: 'pulse 2s infinite' }}></span>}>LIVE</Badge>
-                        <Badge size="xl" variant="light" leftSection={<IconClock size={16} />}>{elapsedTime}</Badge>
-                        <Badge size="xl" variant="light" color="blue" leftSection={<IconUsers size={16} />}>{listenerCount || 0} Listeners</Badge>
+                <Group>
+                    {isLive && (
+                        <Group>
+                            <Badge color="red" size="xl" variant="filled" leftSection={<span style={{ width: 8, height: 8, borderRadius: '50%', background: 'white', display: 'inline-block', marginRight: 4, animation: 'pulse 2s infinite' }}></span>}>LIVE</Badge>
+                            <Badge size="xl" variant="light" leftSection={<IconClock size={16} />}>{elapsedTime}</Badge>
+                            <Badge size="xl" variant="light" color="blue" leftSection={<IconUsers size={16} />}>{listenerCount || 0} Listeners</Badge>
+                        </Group>
+                    )}
+                    <Group gap="sm">
+                        <Avatar color="blue" radius="xl">
+                            {user?.email?.charAt(0).toUpperCase()}
+                        </Avatar>
+                        <Text size="sm" fw={500}>{user?.email}</Text>
+                        <Tooltip label="Logout">
+                            <ActionIcon color="red" variant="subtle" onClick={logout}>
+                                <IconLogout size={20} />
+                            </ActionIcon>
+                        </Tooltip>
                     </Group>
-                )}
+                </Group>
             </Group>
 
             <Grid gutter="lg">
