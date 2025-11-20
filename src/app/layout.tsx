@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/context/AuthContext";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 
 export default function RootLayout({
   children,
@@ -30,8 +31,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <ColorSchemeScript defaultColorScheme="dark" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#339AF0" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="AudioStream" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <ServiceWorkerRegistration />
         <MantineProvider defaultColorScheme="dark">
           <AuthProvider>{children}</AuthProvider>
         </MantineProvider>
