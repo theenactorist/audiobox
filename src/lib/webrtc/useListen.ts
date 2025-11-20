@@ -13,6 +13,7 @@ export function useListen(streamId: string) {
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'not-found'>('disconnected');
     const [streamMetadata, setStreamMetadata] = useState<{ title: string; description: string; startTime: string } | null>(null);
+    const candidateBuffer = useRef<RTCIceCandidateInit[]>([]);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -52,21 +53,37 @@ export function useListen(streamId: string) {
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             socket.emit('answer', id, pc.localDescription);
+
+            // Process buffered candidates
+            while (candidateBuffer.current.length > 0) {
+                const candidate = candidateBuffer.current.shift();
+                if (candidate) {
+                    pc.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            }
         });
 
         socket.on('candidate', (id, candidate) => {
-            peerConnection.current?.addIceCandidate(new RTCIceCandidate(candidate));
+            if (peerConnection.current && peerConnection.current.remoteDescription) {
+                peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+            } else {
+                candidateBuffer.current.push(candidate);
+            }
         });
 
         socket.on('stream-ended', () => {
             setRemoteStream(null);
             setStatus('disconnected');
             peerConnection.current?.close();
+            peerConnection.current = null;
+            candidateBuffer.current = [];
         });
 
         return () => {
             socket.disconnect();
             peerConnection.current?.close();
+            peerConnection.current = null;
+            candidateBuffer.current = [];
         };
     }, [streamId]);
 
