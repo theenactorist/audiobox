@@ -69,6 +69,10 @@ export default function RegisterPage() {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.currentTarget.value)}
+                            type="email"
+                            name="email"
+                            id="email"
+                            autoComplete="email"
                         />
                         <PasswordInput
                             label="Password"
@@ -76,6 +80,9 @@ export default function RegisterPage() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.currentTarget.value)}
+                            name="password"
+                            id="password"
+                            autoComplete="new-password"
                         />
                         <PasswordInput
                             label="Confirm Password"
@@ -83,6 +90,9 @@ export default function RegisterPage() {
                             required
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                            name="confirm-password"
+                            id="confirm-password"
+                            autoComplete="new-password"
                         />
 
                         <Select

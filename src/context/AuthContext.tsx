@@ -10,6 +10,7 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
+    isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
     register: (email: string, password: string, securityQuestion: string, securityAnswer: string) => Promise<void>;
     recover: (email: string, securityAnswer: string, newPassword: string) => Promise<void>;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setUser(JSON.parse(storedUser));
         }
+        setIsLoading(false);
     }, []);
 
     const login = async (email: string, password: string) => {
@@ -107,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, recover, logout, getSecurityQuestion }}>
+        <AuthContext.Provider value={{ user, isLoading, login, register, recover, logout, getSecurityQuestion }}>
             {children}
         </AuthContext.Provider>
     );

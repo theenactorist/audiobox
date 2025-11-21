@@ -11,7 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function StudioPage() {
-    const { user, logout } = useAuth();
+    const { user, isLoading, logout } = useAuth();
     const router = useRouter();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -29,10 +29,10 @@ export default function StudioPage() {
     const { listenerCount, updateMetadata, replaceAudioTrack } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
 
     useEffect(() => {
-        if (!user) {
+        if (!isLoading && !user) {
             router.push('/login');
         }
-    }, [user, router]);
+    }, [user, isLoading, router]);
 
     // Fetch stream history
     useEffect(() => {

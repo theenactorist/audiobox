@@ -151,6 +151,10 @@ export default function LoginPage() {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.currentTarget.value)}
+                            type="email"
+                            name="email"
+                            id="email"
+                            autoComplete="email"
                         />
                         <PasswordInput
                             label="Password"
@@ -158,6 +162,9 @@ export default function LoginPage() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.currentTarget.value)}
+                            name="password"
+                            id="password"
+                            autoComplete="current-password"
                         />
 
                         <Group justify="space-between" mt="xs">
