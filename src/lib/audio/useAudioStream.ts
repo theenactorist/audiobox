@@ -108,6 +108,54 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         }
     }, [isMuted, volume]);
 
+    // Get audio track from a specific device (for seamless switching)
+    const getAudioTrack = useCallback(async (deviceId: string): Promise<MediaStreamTrack | null> => {
+        try {
+            const constraints: MediaStreamConstraints = {
+                audio: {
+                    deviceId: { exact: deviceId },
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    channelCount: 2,
+                    sampleRate: config.sampleRate || 48000,
+                },
+                video: false,
+            };
+
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const audioTrack = newStream.getAudioTracks()[0];
+
+            // Stop old track if exists
+            if (streamRef.current) {
+                streamRef.current.getAudioTracks().forEach(track => track.stop());
+            }
+
+            // Update stream ref
+            streamRef.current = newStream;
+
+            // Recreate Web Audio processing chain
+            if (audioContextRef.current && sourceNodeRef.current && gainNodeRef.current && destinationRef.current) {
+                // Disconnect old source
+                sourceNodeRef.current.disconnect();
+
+                // Create new source with new track
+                const newSource = audioContextRef.current.createMediaStreamSource(newStream);
+                newSource.connect(gainNodeRef.current);
+
+                sourceNodeRef.current = newSource;
+
+                // Update the output stream
+                setStream(destinationRef.current.stream);
+            }
+
+            return audioTrack;
+        } catch (err) {
+            console.error('Error getting audio track:', err);
+            return null;
+        }
+    }, [config.sampleRate]);
+
     // Cleanup on unmount
     useEffect(() => {
         return () => {
@@ -126,5 +174,5 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         };
     }, []);
 
-    return { stream, error, startStream, stopStream, volume, isMuted, updateVolume, toggleMute };
+    return { stream, error, startStream, stopStream, volume, isMuted, updateVolume, toggleMute, getAudioTrack };
 }

@@ -269,6 +269,24 @@ io.on('connection', (socket) => {
         socket.to(id).emit('candidate', socket.id, message);
     });
 
+    // Update stream metadata without restarting
+    socket.on('update-metadata', (data) => {
+        const { streamId, title, description } = data;
+        const broadcaster = broadcasters[streamId];
+        if (broadcaster && broadcaster.socketId === socket.id) {
+            broadcaster.title = title || broadcaster.title;
+            broadcaster.description = description || broadcaster.description;
+
+            // Broadcast updated metadata to all listeners
+            io.to(streamId).emit('metadata-updated', {
+                title: broadcaster.title,
+                description: broadcaster.description
+            });
+
+            console.log(`Metadata updated for stream ${streamId}: ${title}`);
+        }
+    });
+
     socket.on('disconnect', () => {
         // Check if disconnecting socket was a listener
         for (const [streamId, broadcaster] of Object.entries(broadcasters)) {

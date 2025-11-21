@@ -25,8 +25,8 @@ export default function StudioPage() {
 
     const devices = useAudioDevices();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
-    const { listenerCount } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
+    const { stream, startStream, volume, isMuted, updateVolume, toggleMute, getAudioTrack } = useAudioStream();
+    const { listenerCount, updateMetadata, replaceAudioTrack } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
 
     useEffect(() => {
         if (!user) {
@@ -74,12 +74,12 @@ export default function StudioPage() {
         }
     }, [user, devices, selectedDevice]);
 
-    // Start monitoring when device changes
+    // Start monitoring when device is first selected (NOT on every change)
     useEffect(() => {
-        if (user && selectedDevice) {
+        if (user && selectedDevice && !stream) {
             startStream(selectedDevice);
         }
-    }, [user, selectedDevice, startStream]);
+    }, [user, selectedDevice, stream, startStream]);
 
     // Timer logic
     useEffect(() => {
@@ -119,7 +119,32 @@ export default function StudioPage() {
             } catch (err) {
                 console.error('Failed to refresh history:', err);
             }
-        }, 1000);
+        }, 2000);
+    };
+
+    // Handle metadata save
+    const handleSaveMetadata = () => {
+        if (isLive && updateMetadata) {
+            updateMetadata(title, description);
+        }
+    };
+
+    // Handle device change during live broadcast
+    const handleDeviceChange = async (deviceId: string | null) => {
+        if (!deviceId) return;
+
+        setSelectedDevice(deviceId);
+
+        // If live, seamlessly switch the audio track
+        if (isLive && replaceAudioTrack && getAudioTrack) {
+            const newTrack = await getAudioTrack(deviceId);
+            if (newTrack) {
+                await replaceAudioTrack(newTrack);
+            }
+        } else if (!isLive) {
+            // If not live, just restart the stream preview
+            startStream(deviceId);
+        }
     };
 
     if (!user) return null;
@@ -224,11 +249,18 @@ export default function StudioPage() {
                                     label="Audio input (microphone)"
                                     data={deviceOptions}
                                     value={selectedDevice}
-                                    onChange={setSelectedDevice}
+                                    onChange={handleDeviceChange}
                                     placeholder="Select microphone"
                                     allowDeselect={false}
                                     leftSection={<IconMicrophone size={16} />}
                                 />
+
+                                {/* Save Metadata Button */}
+                                {isLive && (
+                                    <Button variant="light" onClick={handleSaveMetadata} fullWidth>
+                                        Save Changes
+                                    </Button>
+                                )}
 
                                 {/* Volume Controls */}
                                 <Stack gap="xs">

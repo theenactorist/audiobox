@@ -29,6 +29,16 @@ export function useListen(streamId: string) {
             setStreamMetadata(metadata);
         });
 
+        // Receive live metadata updates
+        socket.on('metadata-updated', (metadata) => {
+            setStreamMetadata(prev => ({
+                ...prev,
+                title: metadata.title,
+                description: metadata.description,
+                startTime: prev?.startTime || new Date().toISOString()
+            }));
+        });
+
         // Handle stream not found
         socket.on('stream-not-found', () => {
             setStatus('not-found');

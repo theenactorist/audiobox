@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 const RTC_CONFIG = {
@@ -11,6 +11,25 @@ export function useBroadcast(stream: MediaStream | null, streamId: string, title
     const socketRef = useRef<Socket | null>(null);
     const peerConnections = useRef<{ [socketId: string]: RTCPeerConnection }>({});
     const [listenerCount, setListenerCount] = useState(0);
+
+    // Memoized function to update metadata without restarting stream
+    const updateMetadata = useCallback((newTitle: string, newDescription: string) => {
+        if (socketRef.current) {
+            socketRef.current.emit('update-metadata', { streamId, title: newTitle, description: newDescription });
+        }
+    }, [streamId]);
+
+    // Memoized function to replace audio track (for mic switching)
+    const replaceAudioTrack = useCallback(async (newTrack: MediaStreamTrack) => {
+        const connections = peerConnections.current;
+        for (const pc of Object.values(connections)) {
+            const senders = pc.getSenders();
+            const audioSender = senders.find(sender => sender.track?.kind === 'audio');
+            if (audioSender) {
+                await audioSender.replaceTrack(newTrack);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         if (!stream) return;
@@ -66,7 +85,7 @@ export function useBroadcast(stream: MediaStream | null, streamId: string, title
             Object.values(connections).forEach(pc => pc.close());
             setListenerCount(0);
         };
-    }, [stream, streamId, title, description]);
+    }, [stream, streamId]); // Removed title, description, userId from dependencies
 
-    return { listenerCount };
+    return { listenerCount, updateMetadata, replaceAudioTrack };
 }
