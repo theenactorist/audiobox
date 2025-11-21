@@ -12,6 +12,7 @@
   "dependencies": {
     "@mantine/core": "^8.3.8",
     "@mantine/hooks": "^8.3.8",
+    "@supabase/supabase-js": "^2.84.0",
     "@tabler/icons-react": "^3.35.0",
     "bcryptjs": "^3.0.3",
     "next": "16.0.3",

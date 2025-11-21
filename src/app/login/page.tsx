@@ -7,7 +7,7 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
-    const { login, recover, getSecurityQuestion } = useAuth();
+    const { login, recover } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -15,10 +15,6 @@ export default function LoginPage() {
 
     // Recovery State
     const [isRecovering, setIsRecovering] = useState(false);
-    const [securityQuestion, setSecurityQuestion] = useState('');
-    const [securityAnswer, setSecurityAnswer] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [recoveryStep, setRecoveryStep] = useState<'email' | 'answer'>('email');
     const [recoverySuccess, setRecoverySuccess] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -34,32 +30,16 @@ export default function LoginPage() {
         }
     };
 
-    const handleInitiateRecovery = async () => {
+    const handleRecovery = async () => {
         setError('');
         setLoading(true);
         try {
-            const question = await getSecurityQuestion(email);
-            setSecurityQuestion(question);
-            setRecoveryStep('answer');
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleCompleteRecovery = async () => {
-        setError('');
-        setLoading(true);
-        try {
-            await recover(email, securityAnswer, newPassword);
+            await recover(email);
             setRecoverySuccess(true);
             setTimeout(() => {
                 setIsRecovering(false);
                 setRecoverySuccess(false);
-                setRecoveryStep('email');
-                setPassword('');
-            }, 2000);
+            }, 5000);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -73,52 +53,23 @@ export default function LoginPage() {
                 <Title ta="center">Reset Password</Title>
                 <Paper withBorder shadow="md" p={30} mt={30} radius="md">
                     {recoverySuccess ? (
-                        <Alert color="green" title="Success">
-                            Password reset successfully! Redirecting to login...
+                        <Alert color="green" title="Check your email">
+                            Password reset link has been sent to your email address.
                         </Alert>
                     ) : (
                         <Stack>
                             {error && <Alert color="red" icon={<IconAlertCircle size={16} />}>{error}</Alert>}
 
-                            {recoveryStep === 'email' ? (
-                                <>
-                                    <TextInput
-                                        label="Enter your email"
-                                        placeholder="you@example.com"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.currentTarget.value)}
-                                    />
-                                    <Button fullWidth onClick={handleInitiateRecovery} loading={loading}>
-                                        Next
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Text size="sm" fw={500}>Security Question:</Text>
-                                    <Text size="sm" mb="xs">{securityQuestion}</Text>
-
-                                    <TextInput
-                                        label="Answer"
-                                        placeholder="Your answer"
-                                        required
-                                        value={securityAnswer}
-                                        onChange={(e) => setSecurityAnswer(e.currentTarget.value)}
-                                    />
-
-                                    <PasswordInput
-                                        label="New Password"
-                                        placeholder="New secure password"
-                                        required
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.currentTarget.value)}
-                                    />
-
-                                    <Button fullWidth onClick={handleCompleteRecovery} loading={loading}>
-                                        Reset Password
-                                    </Button>
-                                </>
-                            )}
+                            <TextInput
+                                label="Enter your email"
+                                placeholder="you@example.com"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.currentTarget.value)}
+                            />
+                            <Button fullWidth onClick={handleRecovery} loading={loading}>
+                                Send Reset Link
+                            </Button>
 
                             <Anchor component="button" type="button" c="dimmed" size="xs" onClick={() => setIsRecovering(false)}>
                                 Back to Login

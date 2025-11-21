@@ -1,10 +1,14 @@
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcryptjs');
+require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+const { createClient } = require('@supabase/supabase-js');
 
-const httpServer = createServer((req, res) => {
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const httpServer = createServer(async (req, res) => {
     // Handle CORS
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -13,121 +17,8 @@ const httpServer = createServer((req, res) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
 
     if (req.method === 'OPTIONS') {
-        console.log('Handling OPTIONS request');
         res.writeHead(200);
         res.end();
-        return;
-    }
-
-    // Parse JSON body helper
-    const parseBody = (req) => new Promise((resolve, reject) => {
-        let body = '';
-        req.on('data', chunk => body += chunk.toString());
-        req.on('end', () => {
-            try {
-                resolve(body ? JSON.parse(body) : {});
-            } catch (e) {
-                resolve({});
-            }
-        });
-    });
-
-    // Auth Endpoints
-    if (req.url === '/api/auth/register' && req.method === 'POST') {
-        parseBody(req).then(data => {
-            const { email, password, securityQuestion, securityAnswer } = data;
-            if (!email || !password || !securityQuestion || !securityAnswer) {
-                res.writeHead(400);
-                res.end(JSON.stringify({ error: 'Missing fields' }));
-                return;
-            }
-
-            const users = loadUsers();
-            if (users.find(u => u.email === email)) {
-                res.writeHead(400);
-                res.end(JSON.stringify({ error: 'User already exists' }));
-                return;
-            }
-
-            const hashedPassword = bcrypt.hashSync(password, 10);
-            const hashedAnswer = bcrypt.hashSync(securityAnswer.toLowerCase(), 10);
-            const newUser = {
-                id: Date.now().toString(),
-                email,
-                password: hashedPassword,
-                securityQuestion,
-                securityAnswer: hashedAnswer
-            };
-
-            users.push(newUser);
-            saveUsers(users);
-
-            res.writeHead(201, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ user: { id: newUser.id, email: newUser.email } }));
-        });
-        return;
-    }
-
-    if (req.url === '/api/auth/login' && req.method === 'POST') {
-        parseBody(req).then(data => {
-            const { email, password } = data;
-            const users = loadUsers();
-            const user = users.find(u => u.email === email);
-
-            if (!user || !bcrypt.compareSync(password, user.password)) {
-                res.writeHead(401);
-                res.end(JSON.stringify({ error: 'Invalid credentials' }));
-                return;
-            }
-
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ user: { id: user.id, email: user.email } }));
-        });
-        return;
-    }
-
-    if (req.url === '/api/auth/recover' && req.method === 'POST') {
-        parseBody(req).then(data => {
-            const { email, securityAnswer, newPassword } = data;
-            const users = loadUsers();
-            const user = users.find(u => u.email === email);
-
-            if (!user) {
-                res.writeHead(404);
-                res.end(JSON.stringify({ error: 'User not found' }));
-                return;
-            }
-
-            if (!bcrypt.compareSync(securityAnswer.toLowerCase(), user.securityAnswer)) {
-                res.writeHead(401);
-                res.end(JSON.stringify({ error: 'Incorrect security answer' }));
-                return;
-            }
-
-            user.password = bcrypt.hashSync(newPassword, 10);
-            saveUsers(users);
-
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true }));
-        });
-        return;
-    }
-
-    // Get Security Question
-    if (req.url.startsWith('/api/auth/question') && req.method === 'GET') {
-        const url = new URL(req.url, `http://${req.headers.host}`);
-        const email = url.searchParams.get('email');
-        const users = loadUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            res.writeHead(404);
-            res.end(JSON.stringify({ error: 'User not found' }));
-            return;
-        }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ question: user.securityQuestion }));
         return;
     }
 
@@ -136,13 +27,40 @@ const httpServer = createServer((req, res) => {
         const url = new URL(req.url, `http://${req.headers.host}`);
         const userId = url.searchParams.get('userId');
 
-        let history = loadHistory();
-        if (userId) {
-            history = history.filter(h => h.userId === userId);
-        }
+        try {
+            let query = supabase
+                .from('stream_history')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(history));
+            if (userId) {
+                query = query.eq('user_id', userId);
+            }
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            // Map to camelCase for frontend
+            const formattedData = data.map(item => ({
+                streamId: item.stream_id,
+                title: item.title,
+                description: item.description,
+                startTime: item.start_time,
+                endTime: item.end_time,
+                duration: item.duration,
+                peakListeners: item.peak_listeners,
+                userId: item.user_id
+            }));
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(formattedData));
+        } catch (err) {
+            console.error('Error fetching history:', err);
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: 'Failed to fetch history' }));
+        }
         return;
     }
 
@@ -158,56 +76,31 @@ const io = new Server(httpServer, {
 });
 
 const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId }
-const HISTORY_FILE = path.join(__dirname, 'stream-history.json');
-const USERS_FILE = path.join(__dirname, 'users.json');
-
-// User Management
-function loadUsers() {
-    try {
-        if (fs.existsSync(USERS_FILE)) {
-            return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-        }
-    } catch (err) {
-        console.error('Error loading users:', err);
-    }
-    return [];
-}
-
-function saveUsers(users) {
-    try {
-        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-    } catch (err) {
-        console.error('Error saving users:', err);
-    }
-}
-
-// Load existing history
-function loadHistory() {
-    try {
-        if (fs.existsSync(HISTORY_FILE)) {
-            const data = fs.readFileSync(HISTORY_FILE, 'utf8');
-            return JSON.parse(data);
-        }
-    } catch (err) {
-        console.error('Error loading history:', err);
-    }
-    return [];
-}
-
-// Save history
-function saveHistory(history) {
-    try {
-        fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
-    } catch (err) {
-        console.error('Error saving history:', err);
-    }
-}
 
 // Add stream to history
-function addToHistory(streamData) {
-    const history = loadHistory();
-    history.unshift(streamData); // Add to beginning
-    saveHistory(history.slice(0, 50)); // Keep last 50 streams
+async function addToHistory(streamData) {
+    try {
+        const { error } = await supabase
+            .from('stream_history')
+            .insert([{
+                stream_id: streamData.streamId,
+                title: streamData.title,
+                description: streamData.description,
+                start_time: streamData.startTime,
+                end_time: streamData.endTime,
+                duration: streamData.duration,
+                peak_listeners: streamData.peakListeners,
+                user_id: streamData.userId
+            }]);
+
+        if (error) {
+            console.error('Error saving history to Supabase:', error);
+        } else {
+            console.log('Stream history saved to Supabase');
+        }
+    } catch (err) {
+        console.error('Error in addToHistory:', err);
+    }
 }
 
 io.on('connection', (socket) => {
