@@ -323,7 +323,7 @@ export default function ListenerPage() {
                                     </Button>
                                 )}
                             </CopyButton>
-                            {navigator.share && (
+                            {'share' in navigator && (
                                 <Button
                                     variant="light"
                                     leftSection={<IconShare size={16} />}
