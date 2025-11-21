@@ -68,6 +68,21 @@ const httpServer = createServer(async (req, res) => {
         return;
     }
 
+    // Get all active streams
+    if (req.url === '/api/active-streams' && req.method === 'GET') {
+        const activeStreams = Object.entries(broadcasters).map(([streamId, broadcaster]) => ({
+            streamId,
+            title: broadcaster.title,
+            description: broadcaster.description,
+            startTime: broadcaster.startTime,
+            listenerCount: broadcaster.currentListeners
+        }));
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(activeStreams));
+        return;
+    }
+
     // Check stream status (live/offline)
     if (req.url.startsWith('/api/stream-status/') && req.method === 'GET') {
         const streamId = req.url.split('/api/stream-status/')[1];

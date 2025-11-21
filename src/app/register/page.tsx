@@ -1,20 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { TextInput, PasswordInput, Button, Container, Title, Paper, Text, Anchor, Stack, Alert, Select } from '@mantine/core';
 import { useAuth } from '@/context/AuthContext';
-import { IconAlertCircle } from '@tabler/icons-react';
+import {
+    TextInput,
+    PasswordInput,
+    Paper,
+    Title,
+    Text,
+    Container,
+    Button,
+    Alert,
+    Anchor,
+    Stack
+} from '@mantine/core';
+import { IconCheck, IconMail, IconAlertCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 
-export default function RegisterPage() {
-    const { register } = useAuth();
+export default function Register() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [registrationComplete, setRegistrationComplete] = useState(false);
+    const { register } = useAuth();
 
-    const handleRegister = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -24,14 +36,51 @@ export default function RegisterPage() {
         }
 
         setLoading(true);
+
         try {
             await register(email, password);
+            setRegistrationComplete(true);
         } catch (err: any) {
-            setError(err.message);
+            setError(err.message || 'Registration failed');
         } finally {
             setLoading(false);
         }
     };
+
+    if (registrationComplete) {
+        return (
+            <Container size={420} my={40}>
+                <Paper withBorder shadow="md" p={30} mt={30} radius="md">
+                    <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 64,
+                            height: 64,
+                            borderRadius: '50%',
+                            backgroundColor: '#0FA76A20',
+                            marginBottom: '1rem'
+                        }}>
+                            <IconMail size={32} style={{ color: '#0FA76A' }} />
+                        </div>
+                        <Title order={2} ta="center" mb="sm">Check your email</Title>
+                        <Text c="dimmed" size="sm" ta="center">
+                            We've sent a verification link to <strong>{email}</strong>
+                        </Text>
+                    </div>
+
+                    <Alert icon={<IconCheck size={16} />} color="green" variant="light">
+                        Please check your inbox and click the verification link to activate your account.
+                    </Alert>
+
+                    <Text c="dimmed" size="xs" ta="center" mt="lg">
+                        Didn't receive the email? Check your spam folder or contact support.
+                    </Text>
+                </Paper>
+            </Container>
+        );
+    }
 
     return (
         <Container size={420} my={40}>
@@ -44,7 +93,7 @@ export default function RegisterPage() {
             </Text>
 
             <Paper withBorder shadow="md" p={30} mt={30} radius="md">
-                <form onSubmit={handleRegister}>
+                <form onSubmit={handleSubmit}>
                     <Stack>
                         {error && <Alert color="red" icon={<IconAlertCircle size={16} />}>{error}</Alert>}
 
@@ -80,8 +129,8 @@ export default function RegisterPage() {
                             autoComplete="new-password"
                         />
 
-                        <Button fullWidth mt="xl" type="submit" loading={loading}>
-                            Register
+                        <Button fullWidth mt="xl" type="submit" loading={loading} color="green">
+                            Create Account
                         </Button>
                     </Stack>
                 </form>

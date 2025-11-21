@@ -6,42 +6,40 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function ListenerPage() {
-    const [isLive, setIsLive] = useState(false);
-    const [streamMetadata, setStreamMetadata] = useState<any>(null);
+    const [activeStream, setActiveStream] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
-        // Check if demo stream is live by trying to connect to the signaling server
-        const checkLiveStatus = async () => {
+        const checkActiveStreams = async () => {
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
-                const response = await fetch(`${baseUrl}/api/stream-status/demo`);
+                const response = await fetch(`${baseUrl}/api/active-streams`);
 
                 if (response.ok) {
-                    const data = await response.json();
-                    setIsLive(data.isLive);
-                    setStreamMetadata(data.metadata);
+                    const streams = await response.json();
+                    // Get the first active stream (or null if none)
+                    setActiveStream(streams.length > 0 ? streams[0] : null);
                 } else {
-                    setIsLive(false);
+                    setActiveStream(null);
                 }
             } catch (err) {
-                console.error('Failed to check stream status:', err);
-                setIsLive(false);
+                console.error('Failed to check active streams:', err);
+                setActiveStream(null);
             } finally {
                 setLoading(false);
             }
         };
 
-        checkLiveStatus();
+        checkActiveStreams();
         // Poll every 5 seconds
-        const interval = setInterval(checkLiveStatus, 5000);
+        const interval = setInterval(checkActiveStreams, 5000);
         return () => clearInterval(interval);
     }, []);
 
     const handleStartListening = () => {
-        if (isLive) {
-            router.push('/listen/demo');
+        if (activeStream) {
+            router.push(`/listen/${activeStream.streamId}`);
         }
     };
 
@@ -66,37 +64,37 @@ export default function ListenerPage() {
                     <Card padding="xl" radius="md" withBorder style={{ maxWidth: 500 }}>
                         <Group justify="space-between" mb="md">
                             <Badge
-                                color={isLive ? "green" : "gray"}
+                                color={activeStream ? "green" : "gray"}
                                 variant="dot"
                                 size="lg"
                             >
-                                {isLive ? 'Live' : 'Offline'}
+                                {activeStream ? 'Live' : 'Offline'}
                             </Badge>
-                            <ThemeIcon variant="light" color={isLive ? "green" : "gray"} radius="xl">
+                            <ThemeIcon variant="light" color={activeStream ? "green" : "gray"} radius="xl">
                                 <IconHeadphones size={16} />
                             </ThemeIcon>
                         </Group>
 
                         <Text fw={700} size="xl" mt="md">
-                            {streamMetadata?.title || 'Demo Broadcast'}
+                            {activeStream?.title || 'No Active Broadcast'}
                         </Text>
                         <Text size="md" c="dimmed" mt="xs" mb="xl">
-                            {isLive
-                                ? (streamMetadata?.description || 'Experience high-fidelity audio streaming directly from the browser.')
-                                : 'The stream is currently offline. Check back later!'
+                            {activeStream
+                                ? (activeStream.description || 'Experience high-fidelity audio streaming directly from the browser.')
+                                : 'No streams are currently live. Check back later!'
                             }
                         </Text>
 
                         <Button
                             fullWidth
-                            color={isLive ? "green" : "gray"}
+                            color={activeStream ? "green" : "gray"}
                             radius="md"
                             size="lg"
-                            leftSection={isLive ? <IconPlayerPlay size={20} /> : null}
+                            leftSection={activeStream ? <IconPlayerPlay size={20} /> : null}
                             onClick={handleStartListening}
-                            disabled={!isLive}
+                            disabled={!activeStream}
                         >
-                            {isLive ? 'Start Listening' : 'Stream Offline'}
+                            {activeStream ? 'Start Listening' : 'No Stream Available'}
                         </Button>
                     </Card>
                 )}

@@ -155,7 +155,7 @@ export default function StudioPage() {
     if (!user) return null;
 
     const deviceOptions = devices.map(d => ({ value: d.deviceId, label: d.label || `Device ${d.deviceId.slice(0, 5)}...` }));
-    const listenLink = typeof window !== 'undefined' ? `${window.location.origin}/listen/${streamId}` : '';
+    const listenLink = typeof window !== 'undefined' ? `${window.location.origin}/listen` : '';
 
     // Format duration from seconds
     const formatDuration = (seconds: number) => {
