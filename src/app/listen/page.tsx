@@ -229,7 +229,7 @@ export default function ListenerPage() {
 
     // Show player when stream is active
     return (
-        <Container size="sm" py="xl" style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <Container size="sm" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <video
                 ref={audioRef}
                 playsInline

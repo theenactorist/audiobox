@@ -6,7 +6,7 @@ interface AudioVisualizerProps {
     height?: number;
 }
 
-export function AudioVisualizer({ stream, width = 600, height = 150 }: AudioVisualizerProps) {
+export function AudioVisualizer({ stream, width = 600, height = 200 }: AudioVisualizerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -26,7 +26,7 @@ export function AudioVisualizer({ stream, width = 600, height = 150 }: AudioVisu
         audioContextRef.current = audioContext;
 
         const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
+        analyser.fftSize = 256; // Smaller FFT size for wider bars
         analyserRef.current = analyser;
 
         const source = audioContext.createMediaStreamSource(stream);
@@ -39,34 +39,33 @@ export function AudioVisualizer({ stream, width = 600, height = 150 }: AudioVisu
         const draw = () => {
             animationRef.current = requestAnimationFrame(draw);
 
-            analyser.getByteTimeDomainData(dataArray);
+            analyser.getByteFrequencyData(dataArray);
 
             // Clear canvas
-            ctx.fillStyle = '#1A1B1E'; // Dark background (Mantine dark[7])
+            ctx.fillStyle = '#1A1B1E'; // Dark background
             ctx.fillRect(0, 0, width, height);
 
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#339AF0'; // Mantine Blue 5
-            ctx.beginPath();
-
-            const sliceWidth = width * 1.0 / bufferLength;
+            const barWidth = (width / bufferLength) * 2.5;
+            let barHeight;
             let x = 0;
 
             for (let i = 0; i < bufferLength; i++) {
-                const v = dataArray[i] / 128.0;
-                const y = v * height / 2;
+                barHeight = dataArray[i] / 255 * height; // Scale to canvas height
 
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+                // Create gradient
+                const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
+                gradient.addColorStop(0, '#0FA76A'); // Primary Green
+                gradient.addColorStop(1, '#40C057'); // Lighter Green
 
-                x += sliceWidth;
+                ctx.fillStyle = gradient;
+
+                // Draw rounded bars
+                ctx.beginPath();
+                ctx.roundRect(x, height - barHeight, barWidth, barHeight, 4);
+                ctx.fill();
+
+                x += barWidth + 1;
             }
-
-            ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.stroke();
         };
 
         draw();
@@ -79,5 +78,5 @@ export function AudioVisualizer({ stream, width = 600, height = 150 }: AudioVisu
         };
     }, [stream, width, height]);
 
-    return <canvas ref={canvasRef} width={width} height={height} style={{ borderRadius: '8px', width: '100%', height: 'auto', maxWidth: width }} />;
+    return <canvas ref={canvasRef} width={width} height={height} style={{ borderRadius: '12px', width: '100%', height: 'auto', maxWidth: width, boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)' }} />;
 }

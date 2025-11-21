@@ -49,8 +49,8 @@ export default function Home() {
           boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.2)'
         }}>
           <Image
-            src="/hero-listeners.png"
-            alt="People listening to audio"
+            src="/hero-african.png"
+            alt="Diverse community listening to audio"
             fill
             style={{ objectFit: 'cover' }}
             priority
