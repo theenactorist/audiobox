@@ -31,6 +31,18 @@ export function useBroadcast(stream: MediaStream | null, streamId: string, title
         }
     }, []);
 
+    // Memoized function to end stream and save history
+    const endStream = useCallback(() => {
+        if (socketRef.current) {
+            socketRef.current.emit('end-stream', { streamId });
+            socketRef.current.disconnect();
+            const connections = peerConnections.current;
+            Object.values(connections).forEach(pc => pc.close());
+            peerConnections.current = {};
+            setListenerCount(0);
+        }
+    }, [streamId]);
+
     useEffect(() => {
         if (!stream) return;
 
@@ -87,5 +99,5 @@ export function useBroadcast(stream: MediaStream | null, streamId: string, title
         };
     }, [stream, streamId]); // Removed title, description, userId from dependencies
 
-    return { listenerCount, updateMetadata, replaceAudioTrack };
+    return { listenerCount, updateMetadata, replaceAudioTrack, endStream };
 }

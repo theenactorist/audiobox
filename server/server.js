@@ -204,6 +204,34 @@ io.on('connection', (socket) => {
         socket.to(id).emit('candidate', socket.id, message);
     });
 
+    // Handle explicit stream end (before disconnect)
+    socket.on('end-stream', (data) => {
+        const { streamId } = data;
+        const broadcaster = broadcasters[streamId];
+
+        if (broadcaster && broadcaster.socketId === socket.id) {
+            const endTime = new Date().toISOString();
+            const startTime = new Date(broadcaster.startTime);
+            const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
+
+            // Save to history
+            addToHistory({
+                streamId,
+                title: broadcaster.title,
+                description: broadcaster.description,
+                startTime: broadcaster.startTime,
+                endTime,
+                duration,
+                peakListeners: broadcaster.peakListeners,
+                userId: broadcaster.userId
+            });
+
+            delete broadcasters[streamId];
+            io.to(streamId).emit('stream-ended');
+            console.log(`Stream ended manually: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+        }
+    });
+
     // Update stream metadata without restarting
     socket.on('update-metadata', (data) => {
         const { streamId, title, description } = data;

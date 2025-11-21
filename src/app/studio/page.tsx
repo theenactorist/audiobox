@@ -26,7 +26,7 @@ export default function StudioPage() {
     const devices = useAudioDevices();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute, getAudioTrack } = useAudioStream();
-    const { listenerCount, updateMetadata, replaceAudioTrack } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
+    const { listenerCount, updateMetadata, replaceAudioTrack, endStream } = useBroadcast(isLive ? stream : null, streamId, title, description, user?.id);
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -106,6 +106,10 @@ export default function StudioPage() {
     };
 
     const handleStopStream = () => {
+        // End stream and save history
+        if (endStream) {
+            endStream();
+        }
         setIsLive(false);
         setStartTime(null);
         setElapsedTime('00:00:00');
