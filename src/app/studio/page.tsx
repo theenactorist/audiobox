@@ -124,8 +124,13 @@ export default function StudioPage() {
 
     // Handle metadata save
     const handleSaveMetadata = () => {
+        console.log('Save metadata clicked', { isLive, updateMetadata, title, description });
         if (isLive && updateMetadata) {
             updateMetadata(title, description);
+            console.log('Metadata update emitted');
+            alert('Stream metadata updated! Listeners will see changes on refresh.');
+        } else {
+            console.warn('Cannot save metadata:', { isLive, updateMetadata });
         }
     };
 
