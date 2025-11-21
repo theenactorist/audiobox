@@ -41,7 +41,7 @@ export default function ListenerPage() {
         if ('mediaSession' in navigator && isPlaying && streamMetadata) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: streamMetadata.title || `Stream ${streamId}`,
-                artist: 'High-Fidelity Audio Stream',
+                artist: 'AudioBox Stream',
                 album: 'Live Broadcast',
                 artwork: [
                     { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -117,7 +117,7 @@ export default function ListenerPage() {
             try {
                 await navigator.share({
                     title: streamMetadata?.title || `Stream ${streamId}`,
-                    text: streamMetadata?.description || 'Listen to this live audio stream',
+                    text: streamMetadata?.description || 'Listen to this live AudioBox stream',
                     url: currentUrl,
                 });
             } catch (err) {

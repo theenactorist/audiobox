@@ -85,10 +85,7 @@ export default function LoginPage() {
         <Container size={420} my={40}>
             <Title ta="center">Welcome back!</Title>
             <Text c="dimmed" size="sm" ta="center" mt={5}>
-                Do not have an account yet?{' '}
-                <Anchor component={Link} href="/register" size="sm">
-                    Create account
-                </Anchor>
+                Sign in to your account
             </Text>
 
             <Paper withBorder shadow="md" p={30} mt={30} radius="md">

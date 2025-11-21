@@ -1,6 +1,6 @@
 {
-    "name": "High-Fidelity Audio Livestream",
-    "short_name": "AudioStream",
+    "name": "AudioBox",
+    "short_name": "AudioBox",
     "description": "Professional high-fidelity audio broadcasting platform",
     "start_url": "/",
     "display": "standalone",

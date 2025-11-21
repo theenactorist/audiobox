@@ -172,7 +172,7 @@ export default function StudioPage() {
     return (
         <Container size="lg" py="xl">
             <Group justify="space-between" mb="xl">
-                <Title order={1}>Creator Studio</Title>
+                <Title order={1}>AudioBox Studio</Title>
                 <Group>
                     {isLive && (
                         <Group>

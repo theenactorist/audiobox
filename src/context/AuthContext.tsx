@@ -41,7 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(session?.user ?? null);
             setIsLoading(false);
             if (_event === 'SIGNED_IN') {
-                router.push('/studio');
+                // Only redirect to studio if coming from login/register pages
+                const currentPath = window.location.pathname;
+                if (currentPath === '/login' || currentPath === '/register') {
+                    router.push('/studio');
+                }
             } else if (_event === 'SIGNED_OUT') {
                 router.push('/login');
             }

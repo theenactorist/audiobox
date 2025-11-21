@@ -1,7 +1,7 @@
 {
     "name": "audio-livestream-signaling-server",
     "version": "1.0.0",
-    "description": "WebRTC signaling server for high-fidelity audio streaming",
+    "description": "WebRTC signaling server for AudioBox high-fidelity streaming",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"
