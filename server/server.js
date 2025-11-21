@@ -1,7 +1,11 @@
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+try {
+    require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+} catch (e) {
+    // dotenv is optional in production
+}
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
