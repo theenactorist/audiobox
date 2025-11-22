@@ -215,14 +215,6 @@ export default function ListenerPage() {
         localStorage.setItem('installBannerDismissed', 'true');
     };
 
-    const getStatusBadge = () => {
-        if (!activeStream) return { color: 'gray', text: 'OFFLINE' };
-        if (isPlaying) return { color: 'green', text: 'LIVE' };
-        return { color: 'green', text: 'CONNECTED' };
-    };
-
-    const statusBadge = getStatusBadge();
-
     // Show loading state
     if (loading) {
         return (
@@ -284,9 +276,9 @@ export default function ListenerPage() {
         );
     }
 
-    // Show player when stream is active
+    // Show player when stream is active - RESTORED UI
     return (
-        <Container size="sm" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Container size="lg" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <audio
                 ref={audioRef}
                 playsInline
@@ -307,90 +299,95 @@ export default function ListenerPage() {
                 </Alert>
             )}
 
-            <Stack gap="lg">
-                <Group justify="space-between" align="center">
-                    <div>
-                        <Title order={3} size={24} fw={900} style={{ letterSpacing: '-0.5px' }}>AudioBox</Title>
-                        <Text size="xs" c="dimmed" mt={4}>Stay connected anywhere, anytime</Text>
-                    </div>
-                    <Badge color={statusBadge.color} variant="dot" size="lg">
-                        {statusBadge.text}
-                    </Badge>
-                </Group>
+            <div style={{ marginBottom: '3rem' }}>
+                <Title order={3} size={24} fw={900} style={{ letterSpacing: '-0.5px' }}>AudioBox</Title>
+            </div>
 
-                <Card shadow="sm" padding="xl" radius="md" withBorder>
-                    <Stack gap="md">
-                        <div>
-                            <Text fw={700} size="xl">
-                                {activeStream.title || 'Live Stream'}
-                            </Text>
-                            <Text size="sm" c="dimmed" mt={4}>
-                                {activeStream.description || 'Experience high-fidelity audio streaming'}
-                            </Text>
-                        </div>
+            <Stack gap="xl">
+                <Title order={1} size={48} fw={800} style={{ letterSpacing: '-1px' }}>
+                    Stay connected anywhere, anytime
+                </Title>
 
-                        {audioRef.current && isPlaying && (
-                            <div style={{ height: 100, background: 'linear-gradient(to right, #22c55e, #16a34a)', borderRadius: '8px' }} />
-                        )}
+                <Text size="xl" c="dimmed">Live Now</Text>
 
-                        {!isPlaying ? (
-                            <Button
-                                fullWidth
-                                size="lg"
-                                color="green"
-                                onClick={handlePlay}
-                            >
-                                Start Listening
-                            </Button>
-                        ) : (
-                            <Group grow>
-                                <Stack gap="xs">
-                                    <Group gap="xs" justify="space-between">
-                                        <ActionIcon
-                                            variant="light"
-                                            onClick={() => setMuted(!muted)}
-                                            size="lg"
-                                        >
-                                            {muted ? <IconVolumeOff size={20} /> : <IconVolume size={20} />}
-                                        </ActionIcon>
-                                        <div style={{ flex: 1 }}>
-                                            <Slider
-                                                value={volume}
-                                                onChange={setVolume}
-                                                min={0}
-                                                max={100}
-                                                disabled={muted}
-                                                color="green"
-                                            />
-                                        </div>
-                                    </Group>
-                                </Stack>
-                            </Group>
-                        )}
+                <Card padding="xl" radius="md" withBorder style={{ maxWidth: 500 }}>
+                    <Group justify="space-between" mb="md">
+                        <Badge color={isPlaying ? "green" : "green"} variant="dot" size="lg">
+                            {isPlaying ? "LIVE" : "CONNECTED"}
+                        </Badge>
+                        <ThemeIcon variant="light" color="green" radius="xl">
+                            <IconHeadphones size={16} />
+                        </ThemeIcon>
+                    </Group>
 
-                        <Group grow mt="sm">
-                            <CopyButton value={currentUrl} timeout={2000}>
-                                {({ copied, copy }) => (
-                                    <Button
+                    <Text fw={700} size="xl" mt="md">
+                        {activeStream.title || 'Live Stream'}
+                    </Text>
+                    <Text size="md" c="dimmed" mt="xs" mb="xl">
+                        {activeStream.description || 'Experience high-fidelity audio streaming'}
+                    </Text>
+
+                    {audioRef.current && isPlaying && (
+                        <div style={{ height: 100, background: 'linear-gradient(to right, #22c55e, #16a34a)', borderRadius: '8px', marginBottom: '1.5rem' }} />
+                    )}
+
+                    {!isPlaying ? (
+                        <Button
+                            fullWidth
+                            size="lg"
+                            color="green"
+                            onClick={handlePlay}
+                        >
+                            Start Listening
+                        </Button>
+                    ) : (
+                        <Group grow>
+                            <Stack gap="xs">
+                                <Group gap="xs" justify="space-between">
+                                    <ActionIcon
                                         variant="light"
-                                        leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                                        onClick={copy}
+                                        onClick={() => setMuted(!muted)}
+                                        size="lg"
                                     >
-                                        {copied ? 'Copied!' : 'Copy Link'}
-                                    </Button>
-                                )}
-                            </CopyButton>
-                            {'share' in navigator && (
+                                        {muted ? <IconVolumeOff size={20} /> : <IconVolume size={20} />}
+                                    </ActionIcon>
+                                    <div style={{ flex: 1 }}>
+                                        <Slider
+                                            value={volume}
+                                            onChange={setVolume}
+                                            min={0}
+                                            max={100}
+                                            disabled={muted}
+                                            color="green"
+                                        />
+                                    </div>
+                                </Group>
+                            </Stack>
+                        </Group>
+                    )}
+
+                    <Group grow mt="xl">
+                        <CopyButton value={currentUrl} timeout={2000}>
+                            {({ copied, copy }) => (
                                 <Button
                                     variant="light"
-                                    leftSection={<IconShare size={16} />}
-                                    onClick={handleShare}
+                                    leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                                    onClick={copy}
                                 >
-                                    Share
+                                    {copied ? 'Copied!' : 'Copy Link'}
                                 </Button>
                             )}
-                        </Group>
-                    </Stack>
+                        </CopyButton>
+                        {'share' in navigator && (
+                            <Button
+                                variant="light"
+                                leftSection={<IconShare size={16} />}
+                                onClick={handleShare}
+                            >
+                                Share
+                            </Button>
+                        )}
+                    </Group>
                 </Card>
             </Stack>
         </Container>

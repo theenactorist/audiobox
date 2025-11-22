@@ -173,6 +173,45 @@ export default function StudioPage() {
         );
     }
 
+    const handleMetadataUpdate = () => {
+        if (isLive && socketRef.current) {
+            socketRef.current.emit('update-metadata', {
+                streamId,
+                title,
+                description
+            });
+        }
+    };
+
+    // Handle stream change while live (e.g. microphone switch)
+    useEffect(() => {
+        if (isLive && stream && mediaRecorderRef.current && mediaRecorderRef.current.stream.id !== stream.id) {
+            console.log('Stream changed, restarting recorder...');
+
+            // Stop old recorder
+            mediaRecorderRef.current.stop();
+
+            // Start new recorder with new stream
+            const mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus',
+            });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0 && socketRef.current) {
+                    event.data.arrayBuffer().then((buffer) => {
+                        socketRef.current!.emit('audio-chunk', {
+                            streamId,
+                            chunk: buffer
+                        });
+                    });
+                }
+            };
+
+            mediaRecorder.start(100);
+            mediaRecorderRef.current = mediaRecorder;
+        }
+    }, [stream, isLive]);
+
     return (
         <Container size="xl" py="xl">
             <Group justify="space-between" mb="xl">
@@ -210,7 +249,7 @@ export default function StudioPage() {
                                     placeholder="My Awesome Stream"
                                     value={title}
                                     onChange={(e) => setTitle(e.currentTarget.value)}
-                                    disabled={isLive}
+                                    onBlur={handleMetadataUpdate}
                                 />
 
                                 <Textarea
@@ -218,7 +257,7 @@ export default function StudioPage() {
                                     placeholder="Tell your listeners what this stream is about..."
                                     value={description}
                                     onChange={(e) => setDescription(e.currentTarget.value)}
-                                    disabled={isLive}
+                                    onBlur={handleMetadataUpdate}
                                     minRows={3}
                                 />
 
@@ -231,7 +270,6 @@ export default function StudioPage() {
                                         setSelectedDevice(value);
                                         if (value) startStream(value);
                                     }}
-                                    disabled={isLive}
                                 />
 
                                 {!isLive ? (
@@ -348,6 +386,7 @@ export default function StudioPage() {
                                     <Table>
                                         <Table.Thead>
                                             <Table.Tr>
+                                                <Table.Th>Date</Table.Th>
                                                 <Table.Th>Title</Table.Th>
                                                 <Table.Th>Duration</Table.Th>
                                                 <Table.Th>Listeners</Table.Th>
@@ -356,6 +395,11 @@ export default function StudioPage() {
                                         <Table.Tbody>
                                             {historyData.slice(0, 5).map((item) => (
                                                 <Table.Tr key={item.streamId}>
+                                                    <Table.Td>
+                                                        <Text size="sm">
+                                                            {new Date(item.startTime).toLocaleDateString()}
+                                                        </Text>
+                                                    </Table.Td>
                                                     <Table.Td>
                                                         <Text size="sm" truncate style={{ maxWidth: 100 }}>
                                                             {item.title}
