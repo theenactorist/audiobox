@@ -124,7 +124,8 @@ export default function ListenerPage() {
             if (!audioControllerRef.current) {
                 audioControllerRef.current = new AudioController();
             }
-            audioControllerRef.current.initialize(remoteStream, audioRef.current);
+            const isAndroid = /android/i.test(navigator.userAgent);
+            audioControllerRef.current.initialize(remoteStream, audioRef.current, isAndroid);
             // Set initial volume
             audioControllerRef.current.setVolume(muted ? 0 : volume);
         }
@@ -251,7 +252,9 @@ export default function ListenerPage() {
             <audio
                 ref={audioRef}
                 playsInline
-                muted={true} // Muted because audio is routed via Web Audio API
+                // Muted handled by AudioController based on device type
+                // Initial state is muted to prevent autoplay issues, controller will unmute if Android
+                muted={true}
                 style={{ display: 'none' }}
             />
 
