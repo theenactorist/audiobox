@@ -24,7 +24,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
                 streamRef.current.getTracks().forEach(track => track.stop());
             }
 
-            const constraints: MediaStreamConstraints = {
+            const rawStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: deviceId ? { exact: deviceId } : undefined,
                     echoCancellation: false,
@@ -34,9 +34,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
                     sampleRate: config.sampleRate || 48000,
                 },
                 video: false,
-            };
-
-            const rawStream = await navigator.mediaDevices.getUserMedia(constraints);
+            });
 
             // Create Web Audio API nodes for volume control
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;

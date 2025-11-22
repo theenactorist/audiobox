@@ -233,8 +233,8 @@ io.on('connection', (socket) => {
                 .audioBitrate('128k')
                 .outputOptions([
                     '-f hls',
-                    '-hls_time 2',              // 2 second segments
-                    '-hls_list_size 10',        // Keep last 10 segments (20s history) for stability
+                    '-hls_time 4',              // 4 second segments for stability
+                    '-hls_list_size 15',        // Keep last 15 segments (60s history) for maximum buffer
                     '-hls_flags delete_segments', // Auto-delete old segments
                     '-hls_segment_type mpegts'  // Use MPEG-TS for segments
                 ])

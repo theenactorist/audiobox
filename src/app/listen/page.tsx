@@ -79,16 +79,17 @@ export default function ListenerPage() {
         if (Hls.isSupported()) {
             const hls = new Hls({
                 enableWorker: true,
-                lowLatencyMode: false, // Disable low latency for stability
-                liveSyncDurationCount: 3, // Stay 3 segments behind live edge (6s latency)
-                liveMaxLatencyDurationCount: 10, // Allow falling back up to 20s
-                maxBufferLength: 30, // Buffer up to 30s
-                manifestLoadingTimeOut: 10000,
-                manifestLoadingMaxRetry: 10,
-                levelLoadingTimeOut: 10000,
-                levelLoadingMaxRetry: 10,
-                fragLoadingTimeOut: 10000,
-                fragLoadingMaxRetry: 10,
+                lowLatencyMode: false,
+                liveSyncDurationCount: 5, // Stay 5 segments behind live edge (~20s latency for stability)
+                liveMaxLatencyDurationCount: 12, // Allow falling back up to 48s
+                maxBufferLength: 60, // Buffer up to 60s
+                maxMaxBufferLength: 120, // Hard cap at 120s
+                manifestLoadingTimeOut: 20000,
+                manifestLoadingMaxRetry: 20,
+                levelLoadingTimeOut: 20000,
+                levelLoadingMaxRetry: 20,
+                fragLoadingTimeOut: 20000,
+                fragLoadingMaxRetry: 20,
             });
 
             hls.loadSource(hlsUrl);
