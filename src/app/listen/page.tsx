@@ -79,7 +79,16 @@ export default function ListenerPage() {
         if (Hls.isSupported()) {
             const hls = new Hls({
                 enableWorker: true,
-                lowLatencyMode: true,
+                lowLatencyMode: false, // Disable low latency for stability
+                liveSyncDurationCount: 3, // Stay 3 segments behind live edge (6s latency)
+                liveMaxLatencyDurationCount: 10, // Allow falling back up to 20s
+                maxBufferLength: 30, // Buffer up to 30s
+                manifestLoadingTimeOut: 10000,
+                manifestLoadingMaxRetry: 10,
+                levelLoadingTimeOut: 10000,
+                levelLoadingMaxRetry: 10,
+                fragLoadingTimeOut: 10000,
+                fragLoadingMaxRetry: 10,
             });
 
             hls.loadSource(hlsUrl);

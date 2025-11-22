@@ -233,7 +233,7 @@ io.on('connection', (socket) => {
                 .outputOptions([
                     '-f hls',
                     '-hls_time 2',              // 2 second segments
-                    '-hls_list_size 5',         // Keep last 5 segments in playlist
+                    '-hls_list_size 10',        // Keep last 10 segments (20s history) for stability
                     '-hls_flags delete_segments', // Auto-delete old segments
                     '-hls_segment_type mpegts'  // Use MPEG-TS for segments
                 ])
