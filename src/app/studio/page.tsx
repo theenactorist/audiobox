@@ -323,8 +323,8 @@ export default function StudioPage() {
 
             <Group justify="space-between" mb="xl">
                 <div>
-                    <Title order={2}>Studio</Title>
-                    <Text c="dimmed" size="sm">Broadcast your audio to the world</Text>
+                    <Title order={2}>AudioBox</Title>
+                    <Text c="dimmed" size="sm">Your personal broadcasting station</Text>
                 </div>
                 <Group>
                     <Badge size="lg" variant="light">
