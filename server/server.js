@@ -120,6 +120,7 @@ const io = new Server(httpServer, {
 
 const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId }
 const hlsStreams = {}; // streamId -> { ffmpegProcess, inputStream }
+const disconnectTimeouts = {}; // streamId -> timeoutId
 
 // Add stream to history
 async function addToHistory(streamData) {
@@ -153,6 +154,26 @@ io.on('connection', (socket) => {
     // Creator starts a stream with metadata
     socket.on('start-stream', (data) => {
         const { streamId, title, description, userId } = data;
+
+        // Check if this is a resumption of an existing stream
+        if (broadcasters[streamId]) {
+            console.log(`Resuming stream ${streamId} with new socket ${socket.id}`);
+
+            // Clear any pending disconnect timeout
+            if (disconnectTimeouts[streamId]) {
+                clearTimeout(disconnectTimeouts[streamId]);
+                delete disconnectTimeouts[streamId];
+                console.log(`Cleared disconnect timeout for ${streamId}`);
+            }
+
+            // Update broadcaster socket ID
+            broadcasters[streamId].socketId = socket.id;
+            socket.join(streamId);
+
+            // Notify listeners that stream is back/stable (optional, but good practice)
+            return;
+        }
+
         broadcasters[streamId] = {
             socketId: socket.id,
             startTime: new Date().toISOString(),
@@ -264,6 +285,12 @@ io.on('connection', (socket) => {
         const broadcaster = broadcasters[streamId];
 
         if (broadcaster && broadcaster.socketId === socket.id) {
+            // Clear any pending timeout just in case
+            if (disconnectTimeouts[streamId]) {
+                clearTimeout(disconnectTimeouts[streamId]);
+                delete disconnectTimeouts[streamId];
+            }
+
             const endTime = new Date().toISOString();
             const startTime = new Date(broadcaster.startTime);
             const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
@@ -323,37 +350,45 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Handle broadcaster disconnect
+        // Handle broadcaster disconnect with GRACE PERIOD
         for (const [streamId, broadcaster] of Object.entries(broadcasters)) {
             if (broadcaster.socketId === socket.id) {
-                const endTime = new Date().toISOString();
-                const startTime = new Date(broadcaster.startTime);
-                const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
+                console.log(`Broadcaster disconnected for ${streamId}. Starting 30s grace period...`);
 
-                // Cleanup HLS stream
-                const hlsStream = hlsStreams[streamId];
-                if (hlsStream) {
-                    hlsStream.inputStream.end();
-                    hlsStream.ffmpegProcess.kill('SIGINT');
-                    delete hlsStreams[streamId];
-                    console.log(`HLS stream cleaned up for ${streamId}`);
-                }
+                // Set a timeout to clean up if they don't reconnect
+                disconnectTimeouts[streamId] = setTimeout(() => {
+                    console.log(`Grace period expired for ${streamId}. Cleaning up...`);
 
-                // Save to history
-                addToHistory({
-                    streamId,
-                    title: broadcaster.title,
-                    description: broadcaster.description,
-                    startTime: broadcaster.startTime,
-                    endTime,
-                    duration,
-                    peakListeners: broadcaster.peakListeners,
-                    userId: broadcaster.userId
-                });
+                    const endTime = new Date().toISOString();
+                    const startTime = new Date(broadcaster.startTime);
+                    const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
 
-                delete broadcasters[streamId];
-                io.to(streamId).emit('stream-ended');
-                console.log(`Stream ended: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+                    // Cleanup HLS stream
+                    const hlsStream = hlsStreams[streamId];
+                    if (hlsStream) {
+                        hlsStream.inputStream.end();
+                        hlsStream.ffmpegProcess.kill('SIGINT');
+                        delete hlsStreams[streamId];
+                        console.log(`HLS stream cleaned up for ${streamId}`);
+                    }
+
+                    // Save to history
+                    addToHistory({
+                        streamId,
+                        title: broadcaster.title,
+                        description: broadcaster.description,
+                        startTime: broadcaster.startTime,
+                        endTime,
+                        duration,
+                        peakListeners: broadcaster.peakListeners,
+                        userId: broadcaster.userId
+                    });
+
+                    delete broadcasters[streamId];
+                    delete disconnectTimeouts[streamId];
+                    io.to(streamId).emit('stream-ended');
+                    console.log(`Stream ended after timeout: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+                }, 30000); // 30 seconds
                 break;
             }
         }

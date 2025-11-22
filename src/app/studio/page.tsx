@@ -81,6 +81,43 @@ export default function StudioPage() {
 
         socket.on('connect', () => {
             console.log('Connected to signaling server');
+
+            // Check for persisted stream state on connect
+            const savedState = localStorage.getItem('streamState');
+            if (savedState) {
+                const { streamId: savedStreamId, title: savedTitle, description: savedDescription, startTime: savedStartTime } = JSON.parse(savedState);
+
+                // Only resume if it's recent (e.g., within last hour) - optional check
+                // For now, we trust the user wants to resume if state exists
+
+                console.log('Found saved stream state, attempting to resume...');
+                setTitle(savedTitle);
+                setDescription(savedDescription);
+                setStartTime(new Date(savedStartTime));
+                setIsLive(true);
+
+                // Emit start-stream to resume server-side session
+                socket.emit('start-stream', {
+                    streamId: savedStreamId,
+                    title: savedTitle,
+                    description: savedDescription,
+                    userId: user?.id
+                });
+
+                // Re-acquire audio stream if needed
+                if (!stream && selectedDevice) {
+                    startStream(selectedDevice);
+                } else if (!stream) {
+                    // Try to get default device
+                    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+                        // We need to use the hook's startStream to ensure state is updated correctly
+                        // But since we can't call hook functions inside this callback easily without deps,
+                        // we rely on the fact that startStream will be called when selectedDevice is set
+                        // or we manually trigger it if we have the device ID.
+                        // Better approach: Just set isLive=true and let the effect below handle recorder restart
+                    }).catch(e => console.error("Failed to recover stream", e));
+                }
+            }
         });
 
         socket.on('watcher', (watcherId: string) => {
@@ -91,7 +128,31 @@ export default function StudioPage() {
         return () => {
             socket.disconnect();
         };
-    }, []);
+    }, [user]); // Added user dependency to ensure we have userId for resumption
+
+    // Auto-resume recorder when stream becomes available and we are live
+    useEffect(() => {
+        if (isLive && stream && socketRef.current && !mediaRecorderRef.current) {
+            console.log('Resuming MediaRecorder...');
+            const mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus',
+            });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0 && socketRef.current) {
+                    event.data.arrayBuffer().then((buffer) => {
+                        socketRef.current!.emit('audio-chunk', {
+                            streamId,
+                            chunk: buffer
+                        });
+                    });
+                }
+            };
+
+            mediaRecorder.start(100);
+            mediaRecorderRef.current = mediaRecorder;
+        }
+    }, [isLive, stream]);
 
     const handleStartBroadcast = async () => {
         if (!stream || !socketRef.current) {
@@ -107,6 +168,14 @@ export default function StudioPage() {
                 description: description || '',
                 userId: user?.id
             });
+
+            // Save state to localStorage
+            localStorage.setItem('streamState', JSON.stringify({
+                streamId,
+                title,
+                description,
+                startTime: new Date().toISOString()
+            }));
 
             // Create MediaRecorder to capture audio chunks
             const mediaRecorder = new MediaRecorder(stream, {
@@ -151,6 +220,9 @@ export default function StudioPage() {
             socketRef.current.emit('end-stream', { streamId });
         }
 
+        // Clear localStorage
+        localStorage.removeItem('streamState');
+
         setIsLive(false);
         setStartTime(null);
         setElapsedTime('00:00:00');
@@ -185,6 +257,18 @@ export default function StudioPage() {
                 title,
                 description
             });
+
+            // Update localStorage with new metadata
+            const savedState = localStorage.getItem('streamState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                localStorage.setItem('streamState', JSON.stringify({
+                    ...state,
+                    title,
+                    description
+                }));
+            }
+
             setHasUnsavedChanges(false);
         }
     };
