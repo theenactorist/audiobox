@@ -273,7 +273,7 @@ export default function ListenerPage() {
                             </Text>
                         </div>
 
-                        {remoteStream && <AudioVisualizer stream={remoteStream} />}
+                        {remoteStream && <AudioVisualizer stream={remoteStream} isPlaying={isPlaying} />}
 
                         {!isPlaying ? (
                             <Button
