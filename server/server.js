@@ -126,6 +126,7 @@ const io = new Server(httpServer, {
 const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId }
 const hlsStreams = {}; // streamId -> { ffmpegProcess, inputStream }
 const disconnectTimeouts = {}; // streamId -> timeoutId
+const pendingChunks = {}; // streamId -> [Buffer]
 
 // Add stream to history
 async function addToHistory(streamData) {
@@ -266,6 +267,15 @@ io.on('connection', (socket) => {
                 inputStream: inputStream
             };
 
+            // Flush any buffered chunks
+            if (pendingChunks[streamId] && pendingChunks[streamId].length > 0) {
+                console.log(`Flushing ${pendingChunks[streamId].length} buffered chunks for ${streamId}`);
+                pendingChunks[streamId].forEach(chunk => {
+                    inputStream.write(chunk);
+                });
+                delete pendingChunks[streamId];
+            }
+
             console.log(`HLS transcoding initialized for ${streamId}`);
         } catch (err) {
             console.error(`CRITICAL ERROR initializing FFmpeg for ${streamId}:`, err);
@@ -284,12 +294,22 @@ io.on('connection', (socket) => {
             // Write chunk to FFmpeg input stream
             try {
                 hlsStream.inputStream.write(Buffer.from(chunk));
-                // console.log(`Wrote chunk to FFmpeg for ${streamId}, size: ${chunk.byteLength}`);
             } catch (e) {
                 console.error(`Error writing chunk to FFmpeg for ${streamId}:`, e);
             }
         } else {
-            console.warn(`Received chunk for ${streamId} but no HLS stream found`);
+            // Buffer chunks if stream is not yet initialized (to catch the WebM header)
+            if (!pendingChunks[streamId]) {
+                pendingChunks[streamId] = [];
+            }
+            pendingChunks[streamId].push(Buffer.from(chunk));
+
+            // Limit buffer size to avoid memory leaks (e.g., 50 chunks)
+            if (pendingChunks[streamId].length > 50) {
+                pendingChunks[streamId].shift();
+            }
+
+            console.log(`Buffered chunk for ${streamId} (Total: ${pendingChunks[streamId].length}) - waiting for FFmpeg`);
         }
     });
 
