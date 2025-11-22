@@ -214,8 +214,16 @@ io.on('connection', (socket) => {
             .on('start', (cmd) => {
                 console.log(`FFmpeg started for ${streamId}: ${cmd}`);
             })
-            .on('error', (err) => {
+            .on('codecData', (data) => {
+                console.log(`FFmpeg codec data for ${streamId}:`, data);
+            })
+            .on('progress', (progress) => {
+                // Log progress every few seconds to avoid spam
+                if (Math.random() < 0.05) console.log(`FFmpeg progress for ${streamId}:`, progress);
+            })
+            .on('error', (err, stdout, stderr) => {
                 console.error(`FFmpeg error for ${streamId}:`, err.message);
+                console.error(`FFmpeg stderr:`, stderr);
                 delete hlsStreams[streamId];
             })
             .on('end', () => {
@@ -240,7 +248,14 @@ io.on('connection', (socket) => {
 
         if (hlsStream && hlsStream.inputStream) {
             // Write chunk to FFmpeg input stream
-            hlsStream.inputStream.write(Buffer.from(chunk));
+            try {
+                hlsStream.inputStream.write(Buffer.from(chunk));
+                // console.log(`Wrote chunk to FFmpeg for ${streamId}, size: ${chunk.byteLength}`);
+            } catch (e) {
+                console.error(`Error writing chunk to FFmpeg for ${streamId}:`, e);
+            }
+        } else {
+            console.warn(`Received chunk for ${streamId} but no HLS stream found`);
         }
     });
 
