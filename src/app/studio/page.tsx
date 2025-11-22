@@ -23,6 +23,7 @@ export default function StudioPage() {
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [listenerCount, setListenerCount] = useState(0);
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const devices = useAudioDevices();
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
@@ -133,6 +134,7 @@ export default function StudioPage() {
 
             setIsLive(true);
             setStartTime(new Date());
+            setHasUnsavedChanges(false);
             console.log('Broadcast started with HLS');
         } catch (err) {
             console.error('Failed to start broadcast:', err);
@@ -154,6 +156,7 @@ export default function StudioPage() {
         setElapsedTime('00:00:00');
         setListenerCount(0);
         setShowEndConfirmation(false);
+        setHasUnsavedChanges(false);
         console.log('Broadcast stopped');
     };
 
@@ -182,6 +185,7 @@ export default function StudioPage() {
                 title,
                 description
             });
+            setHasUnsavedChanges(false);
         }
     };
 
@@ -267,18 +271,33 @@ export default function StudioPage() {
                                     label="Stream Title"
                                     placeholder="My Awesome Stream"
                                     value={title}
-                                    onChange={(e) => setTitle(e.currentTarget.value)}
-                                    onBlur={handleMetadataUpdate}
+                                    onChange={(e) => {
+                                        setTitle(e.currentTarget.value);
+                                        if (isLive) setHasUnsavedChanges(true);
+                                    }}
                                 />
 
                                 <Textarea
                                     label="Description"
                                     placeholder="Tell your listeners what this stream is about..."
                                     value={description}
-                                    onChange={(e) => setDescription(e.currentTarget.value)}
-                                    onBlur={handleMetadataUpdate}
+                                    onChange={(e) => {
+                                        setDescription(e.currentTarget.value);
+                                        if (isLive) setHasUnsavedChanges(true);
+                                    }}
                                     minRows={3}
                                 />
+
+                                {isLive && hasUnsavedChanges && (
+                                    <Button
+                                        variant="light"
+                                        color="blue"
+                                        onClick={handleMetadataUpdate}
+                                        fullWidth
+                                    >
+                                        Save Changes
+                                    </Button>
+                                )}
 
                                 <Select
                                     label="Audio Input"
