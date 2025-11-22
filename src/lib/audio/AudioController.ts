@@ -10,7 +10,7 @@ export class AudioController {
         // Initialize on user interaction if possible, or lazily
     }
 
-    public async initialize(stream: MediaStream, audioElement?: HTMLAudioElement, isAndroid: boolean = false) {
+    public async initialize(stream: MediaStream, audioElement?: HTMLAudioElement) {
         if (this.audioContext?.state === 'running' && this.stream === stream) {
             return;
         }
@@ -35,16 +35,10 @@ export class AudioController {
         // Create SourceNode
         this.sourceNode = this.audioContext.createMediaStreamSource(stream);
 
-        // Connect graph
+        // Connect graph: Source -> Gain -> Analyser -> Destination
         this.sourceNode.connect(this.gainNode);
         this.gainNode.connect(this.analyserNode);
-
-        // ANDROID FIX: Do NOT connect to destination on Android.
-        // We will rely on the UNMUTED <audio> element for playback.
-        // Connecting to destination would cause an echo.
-        if (!isAndroid) {
-            this.analyserNode.connect(this.audioContext.destination);
-        }
+        this.analyserNode.connect(this.audioContext.destination);
 
         // If an audio element is provided, we can also mute it to prevent double audio
         // BUT for Android background audio, we might actually WANT the audio element to play
@@ -62,10 +56,7 @@ export class AudioController {
         if (this.audioElement) {
             this.audioElement.srcObject = stream;
             this.audioElement.play().catch(e => console.error('Audio element play failed', e));
-
-            // ANDROID FIX: Unmute on Android to keep background service alive.
-            // iOS/Desktop: Mute and use Web Audio API.
-            this.audioElement.muted = !isAndroid;
+            this.audioElement.muted = true; // Mute element, play via Web Audio API
         }
 
         // Resume context if suspended (browser policy)
