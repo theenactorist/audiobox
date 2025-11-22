@@ -207,53 +207,72 @@ io.on('connection', (socket) => {
 
         // Initialize HLS transcoding for this stream
         const hlsPath = path.join(__dirname, 'hls');
+
+        // Ensure HLS directory exists
+        if (!fs.existsSync(hlsPath)) {
+            try {
+                fs.mkdirSync(hlsPath, { recursive: true });
+                console.log(`Created HLS directory at ${hlsPath}`);
+            } catch (err) {
+                console.error(`Failed to create HLS directory: ${err.message}`);
+                return;
+            }
+        }
+
         const playlistPath = path.join(hlsPath, `${streamId}.m3u8`);
 
-        // Create input stream
-        const inputStream = new PassThrough();
+        try {
+            // Create input stream
+            const inputStream = new PassThrough();
 
-        // Start FFmpeg process
-        const ffmpegCommand = ffmpeg(inputStream)
-            .inputFormat('webm')
-            .audioCodec('aac')
-            .audioBitrate('128k')
-            .outputOptions([
-                '-f hls',
-                '-hls_time 2',              // 2 second segments
-                '-hls_list_size 5',         // Keep last 5 segments in playlist
-                '-hls_flags delete_segments', // Auto-delete old segments
-                '-hls_segment_type mpegts'  // Use MPEG-TS for segments
-            ])
-            .output(playlistPath)
-            .on('start', (cmd) => {
-                console.log(`FFmpeg started for ${streamId}: ${cmd}`);
-            })
-            .on('codecData', (data) => {
-                console.log(`FFmpeg codec data for ${streamId}:`, data);
-            })
-            .on('progress', (progress) => {
-                // Log progress every few seconds to avoid spam
-                if (Math.random() < 0.05) console.log(`FFmpeg progress for ${streamId}:`, progress);
-            })
-            .on('error', (err, stdout, stderr) => {
-                console.error(`FFmpeg error for ${streamId}:`, err.message);
-                console.error(`FFmpeg stderr:`, stderr);
-                delete hlsStreams[streamId];
-            })
-            .on('end', () => {
-                console.log(`FFmpeg ended for ${streamId}`);
-                delete hlsStreams[streamId];
-            });
+            // Start FFmpeg process
+            const ffmpegCommand = ffmpeg(inputStream)
+                .inputFormat('webm')
+                .audioCodec('aac')
+                .audioBitrate('128k')
+                .outputOptions([
+                    '-f hls',
+                    '-hls_time 2',              // 2 second segments
+                    '-hls_list_size 5',         // Keep last 5 segments in playlist
+                    '-hls_flags delete_segments', // Auto-delete old segments
+                    '-hls_segment_type mpegts'  // Use MPEG-TS for segments
+                ])
+                .output(playlistPath)
+                .on('start', (cmd) => {
+                    console.log(`FFmpeg started for ${streamId}: ${cmd}`);
+                })
+                .on('codecData', (data) => {
+                    console.log(`FFmpeg codec data for ${streamId}:`, data);
+                })
+                .on('progress', (progress) => {
+                    // Log progress every few seconds to avoid spam
+                    if (Math.random() < 0.05) console.log(`FFmpeg progress for ${streamId}:`, progress);
+                })
+                .on('error', (err, stdout, stderr) => {
+                    console.error(`FFmpeg error for ${streamId}:`, err.message);
+                    console.error(`FFmpeg stderr:`, stderr);
+                    delete hlsStreams[streamId];
+                })
+                .on('end', () => {
+                    console.log(`FFmpeg ended for ${streamId}`);
+                    delete hlsStreams[streamId];
+                });
 
-        console.log(`Attempting to run FFmpeg command for ${streamId}...`);
-        ffmpegCommand.run();
+            console.log(`Attempting to run FFmpeg command for ${streamId}...`);
+            ffmpegCommand.run();
 
-        hlsStreams[streamId] = {
-            ffmpegProcess: ffmpegCommand,
-            inputStream: inputStream
-        };
+            hlsStreams[streamId] = {
+                ffmpegProcess: ffmpegCommand,
+                inputStream: inputStream
+            };
 
-        console.log(`HLS transcoding initialized for ${streamId}`);
+            console.log(`HLS transcoding initialized for ${streamId}`);
+        } catch (err) {
+            console.error(`CRITICAL ERROR initializing FFmpeg for ${streamId}:`, err);
+            // Clean up broadcaster state if FFmpeg fails to start
+            delete broadcasters[streamId];
+            socket.leave(streamId);
+        }
     });
 
     // Handle audio chunks from broadcaster
