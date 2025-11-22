@@ -1,6 +1,11 @@
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const express = require('express');
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs');
+const { PassThrough } = require('stream');
+
 try {
     require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
 } catch (e) {
@@ -12,103 +17,99 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const httpServer = createServer(async (req, res) => {
-    // Handle CORS
+const app = express();
+
+// Parse JSON bodies
+app.use(express.json());
+
+// Handle CORS
+app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-
     if (req.method === 'OPTIONS') {
-        res.writeHead(200);
-        res.end();
-        return;
+        return res.sendStatus(200);
     }
+    next();
+});
 
-    // Serve stream history
-    if (req.url.startsWith('/api/history') && req.method === 'GET') {
-        const url = new URL(req.url, `http://${req.headers.host}`);
-        const userId = url.searchParams.get('userId');
+// Serve HLS files
+app.use('/hls', express.static(path.join(__dirname, 'hls')));
 
-        try {
-            let query = supabase
-                .from('stream_history')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(50);
+// Serve stream history
+app.get('/api/history', async (req, res) => {
+    const userId = req.query.userId;
 
-            if (userId) {
-                query = query.eq('user_id', userId);
-            }
+    try {
+        let query = supabase
+            .from('stream_history')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
 
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            // Map to camelCase for frontend
-            const formattedData = data.map(item => ({
-                streamId: item.stream_id,
-                title: item.title,
-                description: item.description,
-                startTime: item.start_time,
-                endTime: item.end_time,
-                duration: item.duration,
-                peakListeners: item.peak_listeners,
-                userId: item.user_id
-            }));
-
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(formattedData));
-        } catch (err) {
-            console.error('Error fetching history:', err);
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: 'Failed to fetch history' }));
+        if (userId) {
+            query = query.eq('user_id', userId);
         }
-        return;
-    }
 
-    // Get all active streams
-    if (req.url === '/api/active-streams' && req.method === 'GET') {
-        const activeStreams = Object.entries(broadcasters).map(([streamId, broadcaster]) => ({
-            streamId,
-            title: broadcaster.title,
-            description: broadcaster.description,
-            startTime: broadcaster.startTime,
-            listenerCount: broadcaster.currentListeners
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        // Map to camelCase for frontend
+        const formattedData = data.map(item => ({
+            streamId: item.stream_id,
+            title: item.title,
+            description: item.description,
+            startTime: item.start_time,
+            endTime: item.end_time,
+            duration: item.duration,
+            peakListeners: item.peak_listeners,
+            userId: item.user_id
         }));
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(activeStreams));
-        return;
+        res.json(formattedData);
+    } catch (err) {
+        console.error('Error fetching history:', err);
+        res.status(500).json({ error: 'Failed to fetch history' });
     }
-
-    // Check stream status (live/offline)
-    if (req.url.startsWith('/api/stream-status/') && req.method === 'GET') {
-        const streamId = req.url.split('/api/stream-status/')[1];
-        const broadcaster = broadcasters[streamId];
-
-        if (broadcaster) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                isLive: true,
-                metadata: {
-                    title: broadcaster.title,
-                    description: broadcaster.description,
-                    startTime: broadcaster.startTime,
-                    listenerCount: broadcaster.currentListeners
-                }
-            }));
-        } else {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ isLive: false }));
-        }
-        return;
-    }
-
-    res.writeHead(404);
-    res.end('Not found');
 });
+
+// Get all active streams
+app.get('/api/active-streams', (req, res) => {
+    const activeStreams = Object.entries(broadcasters).map(([streamId, broadcaster]) => ({
+        streamId,
+        title: broadcaster.title,
+        description: broadcaster.description,
+        startTime: broadcaster.startTime,
+        listenerCount: broadcaster.currentListeners,
+        hlsUrl: `/hls/${streamId}.m3u8`
+    }));
+
+    res.json(activeStreams);
+});
+
+// Check stream status (live/offline)
+app.get('/api/stream-status/:streamId', (req, res) => {
+    const streamId = req.params.streamId;
+    const broadcaster = broadcasters[streamId];
+
+    if (broadcaster) {
+        res.json({
+            isLive: true,
+            metadata: {
+                title: broadcaster.title,
+                description: broadcaster.description,
+                startTime: broadcaster.startTime,
+                listenerCount: broadcaster.currentListeners
+            }
+        });
+    } else {
+        res.json({ isLive: false });
+    }
+});
+
+const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
@@ -118,6 +119,7 @@ const io = new Server(httpServer, {
 });
 
 const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId }
+const hlsStreams = {}; // streamId -> { ffmpegProcess, inputStream }
 
 // Add stream to history
 async function addToHistory(streamData) {
@@ -162,6 +164,58 @@ io.on('connection', (socket) => {
         };
         socket.join(streamId);
         console.log(`Stream started: ${streamId} by ${socket.id} (User: ${userId})`);
+
+        // Initialize HLS transcoding for this stream
+        const hlsPath = path.join(__dirname, 'hls');
+        const playlistPath = path.join(hlsPath, `${streamId}.m3u8`);
+
+        // Create input stream
+        const inputStream = new PassThrough();
+
+        // Start FFmpeg process
+        const ffmpegCommand = ffmpeg(inputStream)
+            .inputFormat('webm')
+            .audioCodec('aac')
+            .audioBitrate('128k')
+            .outputOptions([
+                '-f hls',
+                '-hls_time 2',              // 2 second segments
+                '-hls_list_size 5',         // Keep last 5 segments in playlist
+                '-hls_flags delete_segments', // Auto-delete old segments
+                '-hls_segment_type mpegts'  // Use MPEG-TS for segments
+            ])
+            .output(playlistPath)
+            .on('start', (cmd) => {
+                console.log(`FFmpeg started for ${streamId}: ${cmd}`);
+            })
+            .on('error', (err) => {
+                console.error(`FFmpeg error for ${streamId}:`, err.message);
+                delete hlsStreams[streamId];
+            })
+            .on('end', () => {
+                console.log(`FFmpeg ended for ${streamId}`);
+                delete hlsStreams[streamId];
+            });
+
+        ffmpegCommand.run();
+
+        hlsStreams[streamId] = {
+            ffmpegProcess: ffmpegCommand,
+            inputStream: inputStream
+        };
+
+        console.log(`HLS transcoding initialized for ${streamId}`);
+    });
+
+    // Handle audio chunks from broadcaster
+    socket.on('audio-chunk', (data) => {
+        const { streamId, chunk } = data;
+        const hlsStream = hlsStreams[streamId];
+
+        if (hlsStream && hlsStream.inputStream) {
+            // Write chunk to FFmpeg input stream
+            hlsStream.inputStream.write(Buffer.from(chunk));
+        }
     });
 
     // Listener joins a stream
@@ -213,6 +267,15 @@ io.on('connection', (socket) => {
             const endTime = new Date().toISOString();
             const startTime = new Date(broadcaster.startTime);
             const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
+
+            // Cleanup HLS stream
+            const hlsStream = hlsStreams[streamId];
+            if (hlsStream) {
+                hlsStream.inputStream.end();
+                hlsStream.ffmpegProcess.kill('SIGINT');
+                delete hlsStreams[streamId];
+                console.log(`HLS stream cleaned up for ${streamId}`);
+            }
 
             // Save to history
             addToHistory({
@@ -266,6 +329,15 @@ io.on('connection', (socket) => {
                 const endTime = new Date().toISOString();
                 const startTime = new Date(broadcaster.startTime);
                 const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
+
+                // Cleanup HLS stream
+                const hlsStream = hlsStreams[streamId];
+                if (hlsStream) {
+                    hlsStream.inputStream.end();
+                    hlsStream.ffmpegProcess.kill('SIGINT');
+                    delete hlsStreams[streamId];
+                    console.log(`HLS stream cleaned up for ${streamId}`);
+                }
 
                 // Save to history
                 addToHistory({

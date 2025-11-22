@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, Button, CopyButton, Alert, Loader, Center, ThemeIcon } from '@mantine/core';
-import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle, IconX, IconHeadphones } from '@tabler/icons-react';
-import { useListen } from '@/lib/webrtc/useListen';
+import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle, IconHeadphones } from '@tabler/icons-react';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
-import { AudioController } from '@/lib/audio/AudioController';
+import Hls from 'hls.js';
 
 interface WakeLockSentinel {
     release: () => Promise<void>;
@@ -20,9 +19,8 @@ export default function ListenerPage() {
     const [showInstallBanner, setShowInstallBanner] = useState(false);
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
-    const { remoteStream, status, streamMetadata } = useListen(activeStream?.streamId || '');
     const audioRef = useRef<HTMLAudioElement>(null);
-    const audioControllerRef = useRef<AudioController | null>(null);
+    const hlsRef = useRef<Hls | null>(null);
 
     const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
@@ -63,11 +61,73 @@ export default function ListenerPage() {
         }
     }, []);
 
+    // Setup HLS player
+    useEffect(() => {
+        if (!activeStream || !audioRef.current) {
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+            return;
+        }
+
+        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const hlsUrl = `${baseUrl}${activeStream.hlsUrl}`;
+
+        console.log('Loading HLS stream:', hlsUrl);
+
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+            });
+
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(audioRef.current);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                console.log('HLS manifest parsed, ready to play');
+            });
+
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                console.error('HLS error:', data);
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log('Network error, trying to recover...');
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log('Media error, trying to recover...');
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            console.log('Fatal error, destroying HLS instance');
+                            hls.destroy();
+                            break;
+                    }
+                }
+            });
+
+            hlsRef.current = hls;
+        } else if (audioRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari/iOS)
+            audioRef.current.src = hlsUrl;
+        }
+
+        return () => {
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+        };
+    }, [activeStream]);
+
     // Media Session API
     useEffect(() => {
-        if ('mediaSession' in navigator && isPlaying && (streamMetadata || activeStream)) {
+        if ('mediaSession' in navigator && isPlaying && activeStream) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: streamMetadata?.title || activeStream?.title || 'AudioBox Stream',
+                title: activeStream.title || 'AudioBox Stream',
                 artist: 'AudioBox Stream',
                 album: 'Live Broadcast',
                 artwork: [
@@ -90,7 +150,7 @@ export default function ListenerPage() {
                 setIsPlaying(false);
             });
         }
-    }, [isPlaying, streamMetadata, activeStream]);
+    }, [isPlaying, activeStream]);
 
     // Wake lock
     useEffect(() => {
@@ -118,40 +178,21 @@ export default function ListenerPage() {
         };
     }, [isPlaying]);
 
-    // Initialize AudioController
-    useEffect(() => {
-        if (remoteStream && audioRef.current) {
-            if (!audioControllerRef.current) {
-                audioControllerRef.current = new AudioController();
-            }
-            audioControllerRef.current.initialize(remoteStream, audioRef.current);
-            // Set initial volume
-            audioControllerRef.current.setVolume(muted ? 0 : volume);
-        }
-
-        return () => {
-            if (audioControllerRef.current) {
-                audioControllerRef.current.cleanup();
-                audioControllerRef.current = null;
-            }
-        };
-    }, [remoteStream]);
-
     // Volume control
     useEffect(() => {
-        if (audioControllerRef.current) {
-            audioControllerRef.current.setVolume(muted ? 0 : volume);
+        if (audioRef.current) {
+            audioRef.current.volume = muted ? 0 : volume / 100;
         }
     }, [volume, muted]);
 
     const handlePlay = async () => {
-        if (audioControllerRef.current) {
-            await audioControllerRef.current.resume();
-        }
         if (audioRef.current) {
-            audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(e => console.error("Play failed", e));
+            try {
+                await audioRef.current.play();
+                setIsPlaying(true);
+            } catch (e) {
+                console.error("Play failed", e);
+            }
         }
     };
 
@@ -159,8 +200,8 @@ export default function ListenerPage() {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: streamMetadata?.title || activeStream?.title || 'AudioBox Stream',
-                    text: streamMetadata?.description || activeStream?.description || 'Listen to this live AudioBox stream',
+                    title: activeStream?.title || 'AudioBox Stream',
+                    text: activeStream?.description || 'Listen to this live AudioBox stream',
                     url: currentUrl,
                 });
             } catch (err) {
@@ -176,10 +217,8 @@ export default function ListenerPage() {
 
     const getStatusBadge = () => {
         if (!activeStream) return { color: 'gray', text: 'OFFLINE' };
-        if (status === 'connected' && isPlaying) return { color: 'green', text: 'LIVE' };
-        if (status === 'connecting') return { color: 'yellow', text: 'CONNECTING' };
-        if (status === 'connected') return { color: 'green', text: 'CONNECTED' };
-        return { color: 'gray', text: 'OFFLINE' };
+        if (isPlaying) return { color: 'green', text: 'LIVE' };
+        return { color: 'green', text: 'CONNECTED' };
     };
 
     const statusBadge = getStatusBadge();
@@ -251,7 +290,6 @@ export default function ListenerPage() {
             <audio
                 ref={audioRef}
                 playsInline
-                muted={true} // Muted because audio is routed via Web Audio API
                 style={{ display: 'none' }}
             />
 
@@ -284,19 +322,15 @@ export default function ListenerPage() {
                     <Stack gap="md">
                         <div>
                             <Text fw={700} size="xl">
-                                {streamMetadata?.title || activeStream?.title || 'Live Stream'}
+                                {activeStream.title || 'Live Stream'}
                             </Text>
                             <Text size="sm" c="dimmed" mt={4}>
-                                {streamMetadata?.description || activeStream?.description || 'Experience high-fidelity audio streaming'}
+                                {activeStream.description || 'Experience high-fidelity audio streaming'}
                             </Text>
                         </div>
 
-                        {remoteStream && (
-                            <AudioVisualizer
-                                stream={remoteStream}
-                                analyser={audioControllerRef.current?.getAnalyser()}
-                                isPlaying={isPlaying}
-                            />
+                        {audioRef.current && isPlaying && (
+                            <div style={{ height: 100, background: 'linear-gradient(to right, #22c55e, #16a34a)', borderRadius: '8px' }} />
                         )}
 
                         {!isPlaying ? (
@@ -305,9 +339,8 @@ export default function ListenerPage() {
                                 size="lg"
                                 color="green"
                                 onClick={handlePlay}
-                                disabled={status !== 'connected'}
                             >
-                                {status === 'connecting' ? 'Connecting...' : 'Start Listening'}
+                                Start Listening
                             </Button>
                         ) : (
                             <Group grow>
