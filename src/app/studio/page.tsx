@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Avatar, Slider } from '@mantine/core';
-import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff } from '@tabler/icons-react';
+import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Avatar, Slider, Modal } from '@mantine/core';
+import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff, IconAlertTriangle } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
@@ -22,6 +22,7 @@ export default function StudioPage() {
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [listenerCount, setListenerCount] = useState(0);
+    const [showEndConfirmation, setShowEndConfirmation] = useState(false);
 
     const devices = useAudioDevices();
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
@@ -152,6 +153,7 @@ export default function StudioPage() {
         setStartTime(null);
         setElapsedTime('00:00:00');
         setListenerCount(0);
+        setShowEndConfirmation(false);
         console.log('Broadcast stopped');
     };
 
@@ -214,6 +216,23 @@ export default function StudioPage() {
 
     return (
         <Container size="xl" py="xl">
+            <Modal
+                opened={showEndConfirmation}
+                onClose={() => setShowEndConfirmation(false)}
+                title="End Broadcast?"
+                centered
+            >
+                <Stack>
+                    <Text size="sm">
+                        Are you sure you want to end the current broadcast? This action cannot be undone and all listeners will be disconnected.
+                    </Text>
+                    <Group justify="flex-end">
+                        <Button variant="light" onClick={() => setShowEndConfirmation(false)}>Cancel</Button>
+                        <Button color="red" onClick={handleStopStream}>End Broadcast</Button>
+                    </Group>
+                </Stack>
+            </Modal>
+
             <Group justify="space-between" mb="xl">
                 <div>
                     <Title order={2}>Studio</Title>
@@ -289,7 +308,7 @@ export default function StudioPage() {
                                         size="lg"
                                         color="red"
                                         leftSection={<IconPlayerStop size={20} />}
-                                        onClick={handleStopStream}
+                                        onClick={() => setShowEndConfirmation(true)}
                                     >
                                         End Stream
                                     </Button>
