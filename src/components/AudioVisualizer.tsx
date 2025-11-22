@@ -1,20 +1,21 @@
 import { useEffect, useRef } from 'react';
 
 interface AudioVisualizerProps {
-    stream: MediaStream | null;
+    stream?: MediaStream | null;
+    analyser?: AnalyserNode | null;
     isPlaying?: boolean;
     width?: number;
     height?: number;
 }
 
-export function AudioVisualizer({ stream, isPlaying = false, width = 600, height = 200 }: AudioVisualizerProps) {
+export function AudioVisualizer({ stream, analyser: externalAnalyser, isPlaying = false, width = 600, height = 200 }: AudioVisualizerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-    // Resume AudioContext when playing state changes
+    // Resume AudioContext when playing state changes (only for internal context)
     useEffect(() => {
         if (isPlaying && audioContextRef.current?.state === 'suspended') {
             audioContextRef.current.resume().then(() => {
@@ -24,39 +25,46 @@ export function AudioVisualizer({ stream, isPlaying = false, width = 600, height
     }, [isPlaying]);
 
     useEffect(() => {
-        if (!stream || !canvasRef.current) return;
+        if (!canvasRef.current) return;
+        // If neither stream nor external analyser is provided, do nothing
+        if (!stream && !externalAnalyser) return;
 
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Initialize Audio Context
-        if (!audioContextRef.current) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            audioContextRef.current = audioContext;
-        }
+        let analyser: AnalyserNode;
 
-        const audioContext = audioContextRef.current;
-
-        // Create analyser if not exists
-        if (!analyserRef.current) {
-            const analyser = audioContext.createAnalyser();
-            analyser.fftSize = 256;
-            analyserRef.current = analyser;
-        }
-        const analyser = analyserRef.current!;
-
-        // Connect stream
-        try {
-            if (sourceRef.current) {
-                sourceRef.current.disconnect();
+        if (externalAnalyser) {
+            analyser = externalAnalyser;
+        } else if (stream) {
+            // Internal context setup (Legacy/Studio mode)
+            if (!audioContextRef.current) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                audioContextRef.current = audioContext;
             }
-            const source = audioContext.createMediaStreamSource(stream);
-            source.connect(analyser);
-            sourceRef.current = source;
-        } catch (err) {
-            console.error('Error connecting stream to analyser:', err);
+            const audioContext = audioContextRef.current;
+
+            if (!analyserRef.current) {
+                const newAnalyser = audioContext.createAnalyser();
+                newAnalyser.fftSize = 256;
+                analyserRef.current = newAnalyser;
+            }
+            analyser = analyserRef.current!;
+
+            try {
+                if (sourceRef.current) {
+                    sourceRef.current.disconnect();
+                }
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                sourceRef.current = source;
+            } catch (err) {
+                console.error('Error connecting stream to analyser:', err);
+                return;
+            }
+        } else {
             return;
         }
 
@@ -77,7 +85,7 @@ export function AudioVisualizer({ stream, isPlaying = false, width = 600, height
             let x = 0;
 
             for (let i = 0; i < bufferLength; i++) {
-                barHeight = dataArray[i] / 255 * height; // Scale to canvas height
+                barHeight = dataArray[i] / 255 * height;
 
                 // Create gradient
                 const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
@@ -99,14 +107,16 @@ export function AudioVisualizer({ stream, isPlaying = false, width = 600, height
 
         return () => {
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
-            // Don't close context on unmount to avoid recreation issues, just suspend or disconnect
-            // But for now, let's keep it simple. If we close it, we need to recreate it.
-            // The previous code closed it. Let's stick to that but be careful.
-            if (sourceRef.current) {
-                sourceRef.current.disconnect();
+
+            // Only cleanup internal context
+            if (!externalAnalyser) {
+                if (sourceRef.current) {
+                    sourceRef.current.disconnect();
+                }
+                // Optional: close context if we want to be strict, but keeping it open is safer for now
             }
         };
-    }, [stream, width, height]);
+    }, [stream, externalAnalyser, width, height]);
 
     return <canvas ref={canvasRef} width={width} height={height} style={{ borderRadius: '12px', width: '100%', height: 'auto', maxWidth: width, boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)' }} />;
 }

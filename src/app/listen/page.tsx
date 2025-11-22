@@ -5,6 +5,7 @@ import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, 
 import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle, IconX, IconHeadphones } from '@tabler/icons-react';
 import { useListen } from '@/lib/webrtc/useListen';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
+import { AudioController } from '@/lib/audio/AudioController';
 
 interface WakeLockSentinel {
     release: () => Promise<void>;
@@ -20,7 +21,8 @@ export default function ListenerPage() {
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
     const { remoteStream, status, streamMetadata } = useListen(activeStream?.streamId || '');
-    const audioRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const audioControllerRef = useRef<AudioController | null>(null);
 
     const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
@@ -75,11 +77,12 @@ export default function ListenerPage() {
             });
 
             navigator.mediaSession.setActionHandler('play', () => {
-                audioRef.current?.play();
+                handlePlay();
             });
 
             navigator.mediaSession.setActionHandler('pause', () => {
                 audioRef.current?.pause();
+                setIsPlaying(false);
             });
 
             navigator.mediaSession.setActionHandler('stop', () => {
@@ -115,21 +118,36 @@ export default function ListenerPage() {
         };
     }, [isPlaying]);
 
-    // Setup audio stream
+    // Initialize AudioController
     useEffect(() => {
-        if (audioRef.current && remoteStream) {
-            audioRef.current.srcObject = remoteStream;
+        if (remoteStream && audioRef.current) {
+            if (!audioControllerRef.current) {
+                audioControllerRef.current = new AudioController();
+            }
+            audioControllerRef.current.initialize(remoteStream, audioRef.current);
+            // Set initial volume
+            audioControllerRef.current.setVolume(muted ? 0 : volume);
         }
+
+        return () => {
+            if (audioControllerRef.current) {
+                audioControllerRef.current.cleanup();
+                audioControllerRef.current = null;
+            }
+        };
     }, [remoteStream]);
 
     // Volume control
     useEffect(() => {
-        if (audioRef.current) {
-            audioRef.current.volume = muted ? 0 : volume / 100;
+        if (audioControllerRef.current) {
+            audioControllerRef.current.setVolume(muted ? 0 : volume);
         }
     }, [volume, muted]);
 
-    const handlePlay = () => {
+    const handlePlay = async () => {
+        if (audioControllerRef.current) {
+            await audioControllerRef.current.resume();
+        }
         if (audioRef.current) {
             audioRef.current.play()
                 .then(() => setIsPlaying(true))
@@ -230,10 +248,10 @@ export default function ListenerPage() {
     // Show player when stream is active
     return (
         <Container size="sm" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <video
+            <audio
                 ref={audioRef}
                 playsInline
-                muted={false}
+                muted={true} // Muted because audio is routed via Web Audio API
                 style={{ display: 'none' }}
             />
 
@@ -273,7 +291,13 @@ export default function ListenerPage() {
                             </Text>
                         </div>
 
-                        {remoteStream && <AudioVisualizer stream={remoteStream} isPlaying={isPlaying} />}
+                        {remoteStream && (
+                            <AudioVisualizer
+                                stream={remoteStream}
+                                analyser={audioControllerRef.current?.getAnalyser()}
+                                isPlaying={isPlaying}
+                            />
+                        )}
 
                         {!isPlaying ? (
                             <Button
