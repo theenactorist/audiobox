@@ -34,8 +34,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// Serve HLS files
-app.use('/hls', express.static(path.join(__dirname, 'hls')));
+// Serve HLS files with CORS headers
+app.use('/hls', express.static(path.join(__dirname, 'hls'), {
+    setHeaders: (res, path, stat) => {
+        res.set('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
+        res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    }
+}));
 
 // Serve stream history
 app.get('/api/history', async (req, res) => {
