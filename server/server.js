@@ -153,6 +153,16 @@ async function addToHistory(streamData) {
     }
 }
 
+// Check if FFmpeg is available
+import { exec } from 'child_process';
+exec('ffmpeg -version', (error, stdout, stderr) => {
+    if (error) {
+        console.error('CRITICAL: FFmpeg is NOT installed or not found in PATH:', error);
+    } else {
+        console.log('FFmpeg is installed and available:', stdout.split('\n')[0]);
+    }
+});
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -162,21 +172,25 @@ io.on('connection', (socket) => {
 
         // Check if this is a resumption of an existing stream
         if (broadcasters[streamId]) {
-            console.log(`Resuming stream ${streamId} with new socket ${socket.id}`);
+            // Check if the HLS process is actually running
+            if (hlsStreams[streamId]) {
+                console.log(`Resuming stream ${streamId} with new socket ${socket.id} and EXISTING FFmpeg process`);
 
-            // Clear any pending disconnect timeout
-            if (disconnectTimeouts[streamId]) {
-                clearTimeout(disconnectTimeouts[streamId]);
-                delete disconnectTimeouts[streamId];
-                console.log(`Cleared disconnect timeout for ${streamId}`);
+                // Clear any pending disconnect timeout
+                if (disconnectTimeouts[streamId]) {
+                    clearTimeout(disconnectTimeouts[streamId]);
+                    delete disconnectTimeouts[streamId];
+                    console.log(`Cleared disconnect timeout for ${streamId}`);
+                }
+
+                // Update broadcaster socket ID
+                broadcasters[streamId].socketId = socket.id;
+                socket.join(streamId);
+                return;
+            } else {
+                console.warn(`Resuming stream ${streamId} but FFmpeg process is MISSING. Restarting stream...`);
+                // Fall through to create new FFmpeg process
             }
-
-            // Update broadcaster socket ID
-            broadcasters[streamId].socketId = socket.id;
-            socket.join(streamId);
-
-            // Notify listeners that stream is back/stable (optional, but good practice)
-            return;
         }
 
         broadcasters[streamId] = {
@@ -231,6 +245,7 @@ io.on('connection', (socket) => {
                 delete hlsStreams[streamId];
             });
 
+        console.log(`Attempting to run FFmpeg command for ${streamId}...`);
         ffmpegCommand.run();
 
         hlsStreams[streamId] = {
