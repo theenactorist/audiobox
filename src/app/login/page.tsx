@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { TextInput, PasswordInput, Button, Container, Title, Paper, Text, Anchor, Stack, Alert, Group } from '@mantine/core';
 import { useAuth } from '@/context/AuthContext';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconArrowLeft, IconHeadphones } from '@tabler/icons-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -83,6 +83,15 @@ export default function LoginPage() {
 
     return (
         <Container size={420} my={40}>
+            <Group justify="space-between" mb="xl">
+                <Button component={Link} href="/" variant="subtle" leftSection={<IconArrowLeft size={16} />}>
+                    Back to Home
+                </Button>
+                <Button component={Link} href="/listen" variant="light" rightSection={<IconHeadphones size={16} />}>
+                    Listen
+                </Button>
+            </Group>
+
             <Title ta="center">Welcome back!</Title>
             <Text c="dimmed" size="sm" ta="center" mt={5}>
                 Sign in to your account
