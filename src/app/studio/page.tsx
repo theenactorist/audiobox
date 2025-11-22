@@ -216,7 +216,7 @@ export default function StudioPage() {
 
                                 {/* Visualizer */}
                                 <div style={{ background: '#1A1B1E', borderRadius: '8px', overflow: 'hidden', padding: '1rem' }}>
-                                    <AudioVisualizer stream={stream} height={200} />
+                                    <AudioVisualizer stream={stream} isPlaying={!!stream} height={200} />
                                 </div>
 
                                 {/* Controls */}
