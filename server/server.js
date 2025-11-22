@@ -372,7 +372,7 @@ io.on('connection', (socket) => {
 
             delete broadcasters[streamId];
             io.to(streamId).emit('stream-ended');
-            console.log(`Stream ended manually: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+            console.log(`Stream ended by user action: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
         }
     });
 

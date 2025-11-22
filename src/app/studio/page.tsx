@@ -17,7 +17,7 @@ export default function StudioPage() {
     const [description, setDescription] = useState('');
     const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
     const [isLive, setIsLive] = useState(false);
-    const [streamId] = useState('demo'); // Default ID for MVP
+    const [streamId, setStreamId] = useState('demo'); // Default ID for MVP
     const [startTime, setStartTime] = useState<Date | null>(null);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
     const [historyData, setHistoryData] = useState<any[]>([]);
@@ -91,6 +91,7 @@ export default function StudioPage() {
                 // For now, we trust the user wants to resume if state exists
 
                 console.log('Found saved stream state, attempting to resume...');
+                setStreamId(savedStreamId); // Set streamId from saved state
                 setTitle(savedTitle);
                 setDescription(savedDescription);
                 setStartTime(new Date(savedStartTime));
