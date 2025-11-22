@@ -154,7 +154,7 @@ async function addToHistory(streamData) {
 }
 
 // Check if FFmpeg is available
-import { exec } from 'child_process';
+const { exec } = require('child_process');
 exec('ffmpeg -version', (error, stdout, stderr) => {
     if (error) {
         console.error('CRITICAL: FFmpeg is NOT installed or not found in PATH:', error);
