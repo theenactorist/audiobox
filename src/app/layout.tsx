@@ -4,9 +4,6 @@ import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
-// Force client-side rendering to prevent hydration mismatches
-export const dynamic = 'force-dynamic';
-
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
   variable: "--font-instrument-sans",
@@ -20,7 +17,6 @@ export const metadata: Metadata = {
 import { AuthProvider } from "@/context/AuthContext";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ClientOnly } from "@/components/ClientOnly";
 
 const theme = createTheme({
   primaryColor: 'green',
@@ -47,9 +43,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
-        <ColorSchemeScript defaultColorScheme="auto" />
+        <ColorSchemeScript />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0FA76A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,15 +53,13 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="AudioBox" />
       </head>
       <body className={instrumentSans.className}>
-        <ClientOnly>
-          <ServiceWorkerRegistration />
-          <MantineProvider theme={theme} defaultColorScheme="auto">
-            <AuthProvider>
-              <ThemeToggle />
-              {children}
-            </AuthProvider>
-          </MantineProvider>
-        </ClientOnly>
+        <ServiceWorkerRegistration />
+        <MantineProvider theme={theme}>
+          <AuthProvider>
+            <ThemeToggle />
+            {children}
+          </AuthProvider>
+        </MantineProvider>
       </body>
     </html>
   );
