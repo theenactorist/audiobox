@@ -55,7 +55,6 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <MantineProvider theme={theme}>
           <AuthProvider>
-            <ThemeToggle />
             {children}
           </AuthProvider>
         </MantineProvider>
