@@ -25,6 +25,8 @@ export default function StudioPage() {
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    const [isMounted, setIsMounted] = useState(false);
+
     // Refs for accessing state in callbacks/effects without stale closures
     const isLiveRef = useRef(isLive);
     const streamIdRef = useRef(streamId);
@@ -36,6 +38,15 @@ export default function StudioPage() {
     useEffect(() => { streamIdRef.current = streamId; }, [streamId]);
     useEffect(() => { titleRef.current = title; }, [title]);
     useEffect(() => { descriptionRef.current = description; }, [description]);
+
+    // Prevent hydration mismatch by only rendering after mount
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) {
+        return null; // Or a loading spinner
+    }
 
     const devices = useAudioDevices();
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
