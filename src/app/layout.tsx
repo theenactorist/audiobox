@@ -6,7 +6,6 @@ import "./globals.css";
 
 // Force client-side rendering to prevent hydration mismatches
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -50,6 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <ColorSchemeScript defaultColorScheme="auto" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0FA76A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -59,7 +59,7 @@ export default function RootLayout({
       <body className={instrumentSans.className}>
         <ClientOnly>
           <ServiceWorkerRegistration />
-          <MantineProvider theme={theme} forceColorScheme="light">
+          <MantineProvider theme={theme} defaultColorScheme="auto">
             <AuthProvider>
               <ThemeToggle />
               {children}
