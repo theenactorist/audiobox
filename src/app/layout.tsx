@@ -4,6 +4,10 @@ import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
+// Force client-side rendering to prevent hydration mismatches
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
   variable: "--font-instrument-sans",
