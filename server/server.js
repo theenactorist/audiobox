@@ -231,11 +231,7 @@ io.on('connection', (socket) => {
                 .inputFormat('webm')
                 .audioCodec('aac')
                 .audioBitrate('128k')
-                .audioFilters([
-                    'volume=0.25',              // Reduce gain by 75% (-12dB) first
-                    'loudnorm=I=-23:TP=-2:LRA=7', // Then normalize to safer broadcast level
-                    'alimiter=limit=0.9'        // Hard limit peaks to prevent clipping
-                ])
+                .audioFilters('volume=0.2,acompressor=threshold=-20dB:ratio=4:attack=5:release=50')
                 .outputOptions([
                     '-f hls',
                     '-hls_time 4',              // 4 second segments for stability
