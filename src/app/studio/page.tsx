@@ -135,6 +135,33 @@ export default function StudioPage() {
 
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);
+
+            // If we are live, we MUST restart the MediaRecorder to send a new WebM header.
+            // Otherwise, FFmpeg will crash with "Invalid data found" (EBML header missing).
+            if (isLiveRef.current) {
+                console.log('Socket reconnected while live. Restarting recorder to send fresh header...');
+
+                // 1. Re-announce stream to server
+                if (socketRef.current) {
+                    socketRef.current.emit('start-stream', {
+                        streamId: streamIdRef.current,
+                        title: titleRef.current,
+                        description: descriptionRef.current,
+                        userId: user?.id
+                    });
+                }
+
+                // 2. Stop current recorder safely. 
+                // The main useEffect (line ~172) will see it's null and start a new one automatically.
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    try {
+                        mediaRecorderRef.current.stop();
+                    } catch (e) {
+                        console.warn('Safe stop of recorder failed:', e);
+                    }
+                    mediaRecorderRef.current = null;
+                }
+            }
         });
 
         socket.on('watcher', (watcherId: string) => {
