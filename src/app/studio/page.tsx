@@ -199,7 +199,7 @@ export default function StudioPage() {
                 console.error('MediaRecorder error:', error);
             };
 
-            mediaRecorder.start(100); // Send chunk every 100ms
+            mediaRecorder.start(1000); // Send chunk every 1 second (more stable than 100ms)
             mediaRecorderRef.current = mediaRecorder;
 
             setIsLive(true);
@@ -210,6 +210,22 @@ export default function StudioPage() {
             console.error('Failed to start broadcast:', err);
         }
     };
+
+    // Keep stream alive when tab is backgrounded
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                console.log('Tab hidden - keeping stream alive');
+                // Ensure socket is still connected
+                if (socketRef.current && !socketRef.current.connected) {
+                    socketRef.current.connect();
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
 
     const handleStopStream = async () => {
         if (mediaRecorderRef.current) {
