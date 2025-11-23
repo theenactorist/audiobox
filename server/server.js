@@ -220,6 +220,21 @@ io.on('connection', (socket) => {
             }
         }
 
+        // Clean up any old segments for this stream to prevent loops
+        try {
+            const oldFiles = fs.readdirSync(hlsPath).filter(f => f.startsWith(streamId));
+            oldFiles.forEach(f => {
+                try {
+                    fs.unlinkSync(path.join(hlsPath, f));
+                    console.log(`Deleted old HLS file: ${f}`);
+                } catch (e) {
+                    console.warn(`Could not delete ${f}:`, e.message);
+                }
+            });
+        } catch (e) {
+            console.warn('Error cleaning old HLS files:', e.message);
+        }
+
         const playlistPath = path.join(hlsPath, `${streamId}.m3u8`);
 
         try {
@@ -234,11 +249,10 @@ io.on('connection', (socket) => {
                 .audioFilters('volume=0.2,acompressor=threshold=-20dB:ratio=4:attack=5:release=50')
                 .outputOptions([
                     '-f hls',
-                    '-hls_time 4',              // 4 second segments for stability
-                    '-hls_list_size 15',        // Keep last 15 segments (60s history)
-                    '-hls_flags append_list+omit_endlist', // Continuous live stream, never mark as ended
-                    '-hls_segment_type mpegts', // Use MPEG-TS for segments
-                    '-hls_playlist_type event'  // Event type playlist for live streaming
+                    '-hls_time 4',              // 4 second segments
+                    '-hls_list_size 10',        // Keep last 10 segments (40s buffer)
+                    '-hls_flags delete_segments+omit_endlist', // Delete old, never mark as ended
+                    '-hls_segment_type mpegts'  // Use MPEG-TS for segments
                 ])
                 .output(playlistPath)
                 .on('start', (cmd) => {
