@@ -46,7 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <ColorSchemeScript defaultColorScheme="auto" />
+        <ColorSchemeScript />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0FA76A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -56,7 +56,7 @@ export default function RootLayout({
       <body className={instrumentSans.className}>
         <ClientOnly>
           <ServiceWorkerRegistration />
-          <MantineProvider theme={theme} defaultColorScheme="auto">
+          <MantineProvider theme={theme}>
             <AuthProvider>
               <ThemeToggle />
               {children}
