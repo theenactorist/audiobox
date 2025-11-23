@@ -25,6 +25,18 @@ export default function StudioPage() {
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    // Refs for accessing state in callbacks/effects without stale closures
+    const isLiveRef = useRef(isLive);
+    const streamIdRef = useRef(streamId);
+    const titleRef = useRef(title);
+    const descriptionRef = useRef(description);
+
+    // Update refs when state changes
+    useEffect(() => { isLiveRef.current = isLive; }, [isLive]);
+    useEffect(() => { streamIdRef.current = streamId; }, [streamId]);
+    useEffect(() => { titleRef.current = title; }, [title]);
+    useEffect(() => { descriptionRef.current = description; }, [description]);
+
     const devices = useAudioDevices();
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
 
@@ -117,6 +129,31 @@ export default function StudioPage() {
                         // or we manually trigger it if we have the device ID.
                         // Better approach: Just set isLive=true and let the effect below handle recorder restart
                     }).catch(e => console.error("Failed to recover stream", e));
+                }
+            }
+        });
+
+        socket.on('connect', () => {
+            console.log('Socket connected:', socket.id);
+
+            // If we were live, we need to re-announce the stream and restart the recorder
+            // to ensure the server gets a fresh WebM header
+            if (isLiveRef.current) {
+                console.log('Reconnecting active stream...');
+
+                // 1. Re-emit start-stream to initialize server state
+                socket.emit('start-stream', {
+                    streamId: streamIdRef.current,
+                    title: titleRef.current,
+                    description: descriptionRef.current,
+                    userId: user?.id
+                });
+
+                // 2. Restart MediaRecorder to send a new header chunk
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    mediaRecorderRef.current.stop();
+                    // The useEffect below will handle restarting it because isLive is true
+                    mediaRecorderRef.current = null;
                 }
             }
         });
