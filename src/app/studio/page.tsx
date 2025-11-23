@@ -142,16 +142,22 @@ export default function StudioPage() {
                 console.log('Reconnecting active stream...');
 
                 // 1. Re-emit start-stream to initialize server state
-                socket.emit('start-stream', {
-                    streamId: streamIdRef.current,
-                    title: titleRef.current,
-                    description: descriptionRef.current,
-                    userId: user?.id
-                });
+                if (socketRef.current) {
+                    socketRef.current.emit('start-stream', {
+                        streamId: streamIdRef.current,
+                        title: titleRef.current,
+                        description: descriptionRef.current,
+                        userId: user?.id
+                    });
+                }
 
                 // 2. Restart MediaRecorder to send a new header chunk
                 if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-                    mediaRecorderRef.current.stop();
+                    try {
+                        mediaRecorderRef.current.stop();
+                    } catch (e) {
+                        console.warn('Error stopping recorder:', e);
+                    }
                     // The useEffect below will handle restarting it because isLive is true
                     mediaRecorderRef.current = null;
                 }
