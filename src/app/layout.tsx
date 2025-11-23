@@ -17,6 +17,7 @@ export const metadata: Metadata = {
 import { AuthProvider } from "@/context/AuthContext";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ClientOnly } from "@/components/ClientOnly";
 
 const theme = createTheme({
   primaryColor: 'green',
@@ -53,13 +54,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="AudioBox" />
       </head>
       <body className={instrumentSans.className}>
-        <ServiceWorkerRegistration />
-        <MantineProvider theme={theme} defaultColorScheme="auto">
-          <AuthProvider>
-            <ThemeToggle />
-            {children}
-          </AuthProvider>
-        </MantineProvider>
+        <ClientOnly>
+          <ServiceWorkerRegistration />
+          <MantineProvider theme={theme} defaultColorScheme="auto">
+            <AuthProvider>
+              <ThemeToggle />
+              {children}
+            </AuthProvider>
+          </MantineProvider>
+        </ClientOnly>
       </body>
     </html>
   );
