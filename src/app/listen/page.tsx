@@ -13,7 +13,7 @@ interface WakeLockSentinel {
 export default function ListenerPage() {
     const [activeStream, setActiveStream] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [volume, setVolume] = useState(80);
+    const [volume, setVolume] = useState(40);
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [showInstallBanner, setShowInstallBanner] = useState(false);

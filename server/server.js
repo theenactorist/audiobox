@@ -231,12 +231,14 @@ io.on('connection', (socket) => {
                 .inputFormat('webm')
                 .audioCodec('aac')
                 .audioBitrate('128k')
+                .audioFilters('loudnorm=I=-16:TP=-1.5:LRA=11') // Normalize volume to prevent peaks
                 .outputOptions([
                     '-f hls',
                     '-hls_time 4',              // 4 second segments for stability
-                    '-hls_list_size 15',        // Keep last 15 segments (60s history) for maximum buffer
-                    '-hls_flags delete_segments', // Auto-delete old segments
-                    '-hls_segment_type mpegts'  // Use MPEG-TS for segments
+                    '-hls_list_size 15',        // Keep last 15 segments (60s history)
+                    '-hls_flags append_list+omit_endlist', // Continuous live stream, never mark as ended
+                    '-hls_segment_type mpegts', // Use MPEG-TS for segments
+                    '-hls_playlist_type event'  // Event type playlist for live streaming
                 ])
                 .output(playlistPath)
                 .on('start', (cmd) => {
