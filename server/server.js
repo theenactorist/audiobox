@@ -80,6 +80,22 @@ app.get('/api/history', async (req, res) => {
     }
 });
 
+// Debug heartbeat
+setInterval(() => {
+    const streamIds = Object.keys(hlsStreams);
+    if (streamIds.length > 0) {
+        console.log(`[Heartbeat] Active FFmpeg processes: ${streamIds.length} (${streamIds.join(', ')})`);
+        streamIds.forEach(id => {
+            const proc = hlsStreams[id].ffmpegProcess; // Access the ffmpegProcess property
+            if (proc && proc.ffmpegProc) { // Check if ffmpegProc exists
+                console.log(`  - Stream ${id}: PID=${proc.ffmpegProc.pid}, Killed=${proc.ffmpegProc.killed}`);
+            } else {
+                console.log(`  - Stream ${id}: FFmpeg process not fully initialized or missing.`);
+            }
+        });
+    }
+}, 5000);
+
 // Get all active streams
 app.get('/api/active-streams', (req, res) => {
     const activeStreams = Object.entries(broadcasters).map(([streamId, broadcaster]) => ({

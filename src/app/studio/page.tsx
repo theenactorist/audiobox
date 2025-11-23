@@ -135,33 +135,6 @@ export default function StudioPage() {
 
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);
-
-            // If we were live, we need to re-announce the stream and restart the recorder
-            // to ensure the server gets a fresh WebM header
-            if (isLiveRef.current) {
-                console.log('Reconnecting active stream...');
-
-                // 1. Re-emit start-stream to initialize server state
-                if (socketRef.current) {
-                    socketRef.current.emit('start-stream', {
-                        streamId: streamIdRef.current,
-                        title: titleRef.current,
-                        description: descriptionRef.current,
-                        userId: user?.id
-                    });
-                }
-
-                // 2. Restart MediaRecorder to send a new header chunk
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-                    try {
-                        mediaRecorderRef.current.stop();
-                    } catch (e) {
-                        console.warn('Error stopping recorder:', e);
-                    }
-                    // The useEffect below will handle restarting it because isLive is true
-                    mediaRecorderRef.current = null;
-                }
-            }
         });
 
         socket.on('watcher', (watcherId: string) => {
