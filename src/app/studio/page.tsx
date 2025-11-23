@@ -95,27 +95,36 @@ export default function StudioPage() {
             console.log('Connected to signaling server');
 
             // Check for persisted stream state on connect
+            // Check for persisted stream state on connect
             const savedState = localStorage.getItem('streamState');
             if (savedState) {
-                const { streamId: savedStreamId, title: savedTitle, description: savedDescription, startTime: savedStartTime } = JSON.parse(savedState);
+                try {
+                    const parsedState = JSON.parse(savedState);
+                    const { streamId: savedStreamId, title: savedTitle, description: savedDescription, startTime: savedStartTime } = parsedState;
 
-                // Only resume if it's recent (e.g., within last hour) - optional check
-                // For now, we trust the user wants to resume if state exists
+                    // Only resume if it's recent (e.g., within last hour) - optional check
+                    // For now, we trust the user wants to resume if state exists
 
-                console.log('Found saved stream state, attempting to resume...');
-                setStreamId(savedStreamId); // Set streamId from saved state
-                setTitle(savedTitle);
-                setDescription(savedDescription);
-                setStartTime(new Date(savedStartTime));
-                setIsLive(true);
+                    console.log('Found saved stream state, attempting to resume...');
+                    setStreamId(savedStreamId); // Set streamId from saved state
+                    setTitle(savedTitle);
+                    setDescription(savedDescription);
+                    setStartTime(new Date(savedStartTime));
+                    setIsLive(true);
 
-                // Emit start-stream to resume server-side session
-                socket.emit('start-stream', {
-                    streamId: savedStreamId,
-                    title: savedTitle,
-                    description: savedDescription,
-                    userId: user?.id
-                });
+                    // Emit start-stream to resume server-side session
+                    if (socketRef.current) {
+                        socketRef.current.emit('start-stream', {
+                            streamId: savedStreamId,
+                            title: savedTitle,
+                            description: savedDescription,
+                            userId: user?.id
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to parse saved stream state:', e);
+                    localStorage.removeItem('streamState'); // Clear corrupted state
+                }
 
                 // Re-acquire audio stream if needed
                 if (!stream && selectedDevice) {
