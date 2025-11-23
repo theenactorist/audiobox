@@ -217,7 +217,8 @@ export default function StudioPage() {
             if (document.hidden) {
                 console.log('Tab hidden - keeping stream alive');
                 // Ensure socket is still connected
-                if (socketRef.current && !socketRef.current.connected) {
+                if (socketRef.current?.connected === false) {
+                    console.log('Socket disconnected, attempting reconnect...');
                     socketRef.current.connect();
                 }
             }
