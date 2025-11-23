@@ -246,7 +246,6 @@ io.on('connection', (socket) => {
                 .inputFormat('webm')
                 .audioCodec('aac')
                 .audioBitrate('128k')
-                .audioFilters('volume=0.2,acompressor=threshold=-20dB:ratio=4:attack=5:release=50')
                 .outputOptions([
                     '-f hls',
                     '-hls_time 4',              // 4 second segments
