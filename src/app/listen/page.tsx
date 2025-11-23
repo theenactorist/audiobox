@@ -78,29 +78,30 @@ export default function ListenerPage() {
 
         if (Hls.isSupported()) {
             const hls = new Hls({
+                debug: false,
                 enableWorker: true,
-                lowLatencyMode: false,
-                liveSyncDurationCount: 5, // Stay 5 segments behind live edge (~20s latency for stability)
-                liveMaxLatencyDurationCount: 12, // Allow falling back up to 48s
-                maxBufferLength: 60, // Buffer up to 60s
-                maxMaxBufferLength: 120, // Hard cap at 120s
-                manifestLoadingTimeOut: 20000,
-                manifestLoadingMaxRetry: 20,
-                levelLoadingTimeOut: 20000,
-                levelLoadingMaxRetry: 20,
-                fragLoadingTimeOut: 20000,
-                fragLoadingMaxRetry: 20,
+                lowLatencyMode: true,
+                backBufferLength: 90,
+                maxBufferLength: 30,
+                liveSyncDurationCount: 3,
+                liveMaxLatencyDurationCount: 10,
+                manifestLoadingTimeOut: 10000,
+                manifestLoadingMaxRetry: 10,
+                levelLoadingTimeOut: 10000,
+                levelLoadingMaxRetry: 10,
+                fragLoadingTimeOut: 10000,
+                fragLoadingMaxRetry: 10,
             });
 
             hls.loadSource(hlsUrl);
             hls.attachMedia(audioRef.current);
 
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                console.log('HLS manifest parsed, ready to play');
+                console.log('Manifest parsed, starting playback');
+                audioRef.current?.play().catch(e => console.log('Autoplay prevented:', e));
             });
 
             hls.on(Hls.Events.ERROR, (event, data) => {
-                console.error('HLS error:', data);
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
@@ -112,7 +113,7 @@ export default function ListenerPage() {
                             hls.recoverMediaError();
                             break;
                         default:
-                            console.log('Fatal error, destroying HLS instance');
+                            console.error('Fatal HLS error, destroying:', data);
                             hls.destroy();
                             break;
                     }
