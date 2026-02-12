@@ -547,6 +547,21 @@ io.on('connection', (socket) => {
     });
 });
 
+// In production, serve the built client
+const clientDistPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDistPath)) {
+    app.use(express.static(clientDistPath));
+    // Catch-all for client-side routing (SPA)
+    app.get('*', (req, res) => {
+        // Don't catch API or HLS routes
+        if (req.path.startsWith('/api') || req.path.startsWith('/hls') || req.path.startsWith('/socket.io')) {
+            return res.status(404).json({ error: 'Not found' });
+        }
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+    });
+    console.log('Serving built client from', clientDistPath);
+}
+
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
     console.log(`Signaling server running on port ${PORT}`);
