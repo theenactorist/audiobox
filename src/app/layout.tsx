@@ -1,5 +1,7 @@
 import "@mantine/core/styles.css";
+import '@mantine/notifications/styles.css';
 import { ColorSchemeScript, MantineProvider, createTheme } from "@mantine/core";
+import { Notifications } from '@mantine/notifications';
 import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import "./globals.css";
@@ -43,8 +45,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <ColorSchemeScript defaultColorScheme="auto" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0FA76A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -53,7 +56,8 @@ export default function RootLayout({
       </head>
       <body className={instrumentSans.className}>
         <ServiceWorkerRegistration />
-        <MantineProvider theme={theme}>
+        <MantineProvider theme={theme} defaultColorScheme="auto">
+          <Notifications />
           <AuthProvider>
             {children}
           </AuthProvider>

@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:all": "concurrently \"npm run dev\" \"node server/server.js\"",
+    "dev:all": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint"
   },
   "dependencies": {
     "@mantine/core": "^8.3.8",
     "@mantine/hooks": "^8.3.8",
+    "@mantine/notifications": "^8.3.9",
     "@supabase/supabase-js": "^2.84.0",
     "@tabler/icons-react": "^3.35.0",
     "bcryptjs": "^3.0.3",

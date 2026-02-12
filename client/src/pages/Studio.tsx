@@ -1,19 +1,19 @@
-'use client';
+
 
 import { useState, useEffect, useRef } from 'react';
-import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Avatar, Slider, Modal, Indicator } from '@mantine/core';
-import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff, IconAlertTriangle, IconWifi, IconWifiOff } from '@tabler/icons-react';
+import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Slider, Modal, Indicator } from '@mantine/core';
+import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff, IconWifi, IconWifiOff } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import io, { Socket } from 'socket.io-client';
 import { notifications } from '@mantine/notifications';
 
 export default function StudioPage() {
     const { user, isLoading, logout } = useAuth();
-    const router = useRouter();
+    const router = useNavigate();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export default function StudioPage() {
 
     useEffect(() => {
         if (!isLoading && !user) {
-            router.push('/login');
+            router('/login');
         }
     }, [user, isLoading, router]);
 
@@ -64,7 +64,7 @@ export default function StudioPage() {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+                const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
                 const response = await fetch(`${baseUrl}/api/history?userId=${user?.id}`);
                 const data = await response.json();
                 setHistoryData(data);
@@ -97,7 +97,7 @@ export default function StudioPage() {
 
     // Initialize Socket.IO connection
     useEffect(() => {
-        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
         const socket = io(baseUrl);
         socketRef.current = socket;
 
@@ -154,7 +154,7 @@ export default function StudioPage() {
                     startStream(selectedDevice);
                 } else if (!stream) {
                     // Try to get default device
-                    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+                    navigator.mediaDevices.getUserMedia({ audio: true }).then(() => {
                         // We need to use the hook's startStream to ensure state is updated correctly
                         // But since we can't call hook functions inside this callback easily without deps,
                         // we rely on the fact that startStream will be called when selectedDevice is set
@@ -217,6 +217,11 @@ export default function StudioPage() {
                 color: 'teal',
                 icon: <IconUsers size={16} />,
             });
+        });
+
+        socket.on('listener-left', (listenerId: string) => {
+            console.log('Listener left:', listenerId);
+            setListenerCount((prev) => Math.max(0, prev - 1));
         });
 
         return () => {
@@ -371,7 +376,7 @@ export default function StudioPage() {
 
     const handleLogout = async () => {
         await logout();
-        router.push('/login');
+        router('/login');
     };
 
     const listenerUrl = typeof window !== 'undefined'

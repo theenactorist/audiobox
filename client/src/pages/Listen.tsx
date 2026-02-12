@@ -1,10 +1,10 @@
-'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, Button, CopyButton, Alert, Loader, Center, ThemeIcon } from '@mantine/core';
 import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle, IconHeadphones } from '@tabler/icons-react';
-import { AudioVisualizer } from '@/components/AudioVisualizer';
+
 import Hls from 'hls.js';
+import { AudioVisualizer } from '@/components/AudioVisualizer';
 import io, { Socket } from 'socket.io-client';
 
 interface WakeLockSentinel {
@@ -18,17 +18,21 @@ export default function ListenerPage() {
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [showInstallBanner, setShowInstallBanner] = useState(false);
+    const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
     const audioRef = useRef<HTMLAudioElement>(null);
     const hlsRef = useRef<Hls | null>(null);
     const socketRef = useRef<Socket | null>(null);
+    const joinedStreamRef = useRef<string | null>(null); // Track which stream we've joined
 
     const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
     // Poll for active streams AND listen for socket events
     useEffect(() => {
-        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
 
         // Initialize socket for real-time updates
         const socket = io(baseUrl);
@@ -36,10 +40,15 @@ export default function ListenerPage() {
 
         socket.on('connect', () => {
             console.log('Listener connected to signaling server');
+            // Re-join stream if we were in one before reconnect
+            if (joinedStreamRef.current) {
+                socket.emit('join-stream', joinedStreamRef.current);
+            }
         });
 
         socket.on('stream-ended', () => {
             console.log('Stream ended event received');
+            joinedStreamRef.current = null; // Clear joined stream
             setActiveStream(null);
             setIsPlaying(false);
         });
@@ -57,10 +66,31 @@ export default function ListenerPage() {
                     const streams = await response.json();
                     if (streams.length > 0) {
                         const stream = streams[0];
-                        setActiveStream(stream);
-                        // Join the stream room to receive updates
-                        socket.emit('join-stream', stream.streamId);
+
+                        // Only update activeStream if it's a different stream to prevent HLS reload
+                        setActiveStream((prev: any) => {
+                            if (prev && prev.streamId === stream.streamId) {
+                                return prev; // Return same object reference to skip effects
+                            }
+                            return stream;
+                        });
+
+                        // Only join if we haven't joined this stream yet
+                        if (joinedStreamRef.current !== stream.streamId) {
+                            // Leave previous stream if we were in a different one
+                            if (joinedStreamRef.current) {
+                                socket.emit('leave-stream', joinedStreamRef.current);
+                            }
+                            socket.emit('join-stream', stream.streamId);
+                            joinedStreamRef.current = stream.streamId;
+                            console.log(`Joined stream: ${stream.streamId}`);
+                        }
                     } else {
+                        // No active streams, leave if we were in one
+                        if (joinedStreamRef.current) {
+                            socket.emit('leave-stream', joinedStreamRef.current);
+                            joinedStreamRef.current = null;
+                        }
                         setActiveStream(null);
                     }
                 } else {
@@ -79,6 +109,10 @@ export default function ListenerPage() {
 
         return () => {
             clearInterval(interval);
+            // Leave stream when component unmounts
+            if (joinedStreamRef.current) {
+                socket.emit('leave-stream', joinedStreamRef.current);
+            }
             socket.disconnect();
         };
     }, []);
@@ -94,6 +128,40 @@ export default function ListenerPage() {
         }
     }, []);
 
+    // Setup Audio Context for Visualizer
+    useEffect(() => {
+        if (isPlaying && audioRef.current && !analyser) {
+            try {
+                if (!audioContextRef.current) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                    audioContextRef.current = new AudioContextClass();
+                }
+
+                const ctx = audioContextRef.current;
+
+                // Resume context if suspended (browser policy)
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+
+                if (!sourceRef.current) {
+                    const source = ctx.createMediaElementSource(audioRef.current);
+                    const newAnalyser = ctx.createAnalyser();
+                    newAnalyser.fftSize = 256;
+
+                    source.connect(newAnalyser);
+                    newAnalyser.connect(ctx.destination);
+
+                    sourceRef.current = source;
+                    setAnalyser(newAnalyser);
+                }
+            } catch (err) {
+                console.warn('Audio visualization setup failed (likely CORS):', err);
+            }
+        }
+    }, [isPlaying]);
+
     // Setup HLS player
     useEffect(() => {
         if (!activeStream || !audioRef.current) {
@@ -104,7 +172,7 @@ export default function ListenerPage() {
             return;
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_SIGNALING_URL || 'http://localhost:3001';
+        const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
         const hlsUrl = `${baseUrl}${activeStream.hlsUrl}`;
 
         console.log('Loading HLS stream:', hlsUrl);
@@ -130,13 +198,14 @@ export default function ListenerPage() {
             hls.attachMedia(audioRef.current);
 
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                console.log('Manifest parsed, starting playback');
-                audioRef.current?.play().catch(e => console.log('Autoplay prevented:', e));
+                console.log('Manifest parsed, ready to play');
+                // Removed autoplay to require user interaction
+                // audioRef.current?.play().catch(e => console.log('Autoplay prevented:', e));
             });
 
-            hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    switch (data.type) {
+            hls.on(Hls.Events.ERROR, (data) => {
+                if ((data as any).fatal) {
+                    switch ((data as any).type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
                             console.log('Network error, trying to recover...');
                             hls.startLoad();
@@ -372,7 +441,14 @@ export default function ListenerPage() {
                     </Text>
 
                     {audioRef.current && isPlaying && (
-                        <div style={{ height: 100, background: 'linear-gradient(to right, #22c55e, #16a34a)', borderRadius: '8px', marginBottom: '1.5rem' }} />
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <AudioVisualizer
+                                analyser={analyser}
+                                isPlaying={isPlaying}
+                                height={120}
+                                width={500}
+                            />
+                        </div>
                     )}
 
                     {!isPlaying ? (

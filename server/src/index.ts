@@ -26,8 +26,11 @@ try {
 } catch (e) {
     // dotenv is optional in production
 }
-const db = require('./db');
-const { router: authRouter } = require('./auth');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
 
@@ -46,38 +49,32 @@ app.use((req, res, next) => {
     next();
 });
 
-// Mount auth routes
-app.use('/api/auth', authRouter);
-
-// Serve HLS files with CORS headers
 // Serve HLS files with CORS headers
 app.use('/hls', express.static(path.join(__dirname, 'hls'), {
-    setHeaders: (res, filePath, stat) => {
+    setHeaders: (res, path, stat) => {
         res.set('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
         res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-
-        // Prevent caching of m3u8 playlists for live streaming
-        if (filePath.endsWith('.m3u8')) {
-            res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        }
     }
 }));
 
 // Serve stream history
-app.get('/api/history', (req, res) => {
+app.get('/api/history', async (req, res) => {
     const userId = req.query.userId;
 
     try {
-        let stmt;
-        let data;
+        let query = supabase
+            .from('stream_history')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
 
         if (userId) {
-            stmt = db.prepare('SELECT * FROM stream_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 50');
-            data = stmt.all(userId);
-        } else {
-            stmt = db.prepare('SELECT * FROM stream_history ORDER BY created_at DESC LIMIT 50');
-            data = stmt.all();
+            query = query.eq('user_id', userId);
         }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
 
         // Map to camelCase for frontend
         const formattedData = data.map(item => ({
@@ -163,22 +160,26 @@ const disconnectTimeouts = {}; // streamId -> timeoutId
 const pendingChunks = {}; // streamId -> [Buffer]
 
 // Add stream to history
-function addToHistory(streamData) {
+async function addToHistory(streamData) {
     try {
-        db.prepare(`
-            INSERT INTO stream_history (stream_id, title, description, start_time, end_time, duration, peak_listeners, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            streamData.streamId,
-            streamData.title,
-            streamData.description,
-            streamData.startTime,
-            streamData.endTime,
-            streamData.duration,
-            streamData.peakListeners,
-            streamData.userId
-        );
-        console.log('Stream history saved to database');
+        const { error } = await supabase
+            .from('stream_history')
+            .insert([{
+                stream_id: streamData.streamId,
+                title: streamData.title,
+                description: streamData.description,
+                start_time: streamData.startTime,
+                end_time: streamData.endTime,
+                duration: streamData.duration,
+                peak_listeners: streamData.peakListeners,
+                user_id: streamData.userId
+            }]);
+
+        if (error) {
+            console.error('Error saving history to Supabase:', error);
+        } else {
+            console.log('Stream history saved to Supabase');
+        }
     } catch (err) {
         console.error('Error in addToHistory:', err);
     }
@@ -397,22 +398,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Listener leaves a stream
-    socket.on('leave-stream', (streamId) => {
-        const broadcaster = broadcasters[streamId];
-        if (broadcaster) {
-            socket.leave(streamId);
-
-            // Decrement listener count
-            broadcaster.currentListeners = Math.max(0, broadcaster.currentListeners - 1);
-
-            // Notify broadcaster
-            io.to(broadcaster.socketId).emit('listener-left', socket.id);
-
-            console.log(`Listener ${socket.id} left stream ${streamId}. Current: ${broadcaster.currentListeners}`);
-        }
-    });
-
     // WebRTC Signaling
     socket.on('offer', (id, message) => {
         socket.to(id).emit('offer', socket.id, message);
@@ -493,10 +478,6 @@ io.on('connection', (socket) => {
             const room = io.sockets.adapter.rooms.get(streamId);
             if (room && room.has(socket.id) && socket.id !== broadcaster.socketId) {
                 broadcaster.currentListeners = Math.max(0, broadcaster.currentListeners - 1);
-
-                // Notify broadcaster
-                io.to(broadcaster.socketId).emit('listener-left', socket.id);
-
                 console.log(`Listener left ${streamId}. Current: ${broadcaster.currentListeners}`);
             }
         }

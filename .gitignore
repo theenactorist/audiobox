@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SQLite database
+*.db
+*.db-wal
+*.db-shm
+
+# HLS output
+/server/hls/
