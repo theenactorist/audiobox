@@ -161,6 +161,8 @@ const broadcasters = {}; // streamId -> { socketId, startTime, title, descriptio
 const hlsStreams = {}; // streamId -> { ffmpegProcess, inputStream }
 const disconnectTimeouts = {}; // streamId -> timeoutId
 const pendingChunks = {}; // streamId -> [Buffer]
+const streamListeners = {}; // streamId -> Set<socketId> — tracks unique listeners
+const socketStreams = {}; // socketId -> Set<streamId> — tracks which streams a socket joined
 
 // Add stream to history
 function addToHistory(streamData) {
@@ -338,6 +340,7 @@ io.on('connection', (socket) => {
             console.error(`CRITICAL ERROR initializing FFmpeg for ${streamId}:`, err);
             // Clean up broadcaster state if FFmpeg fails to start
             delete broadcasters[streamId];
+            delete streamListeners[streamId];
             socket.leave(streamId);
         }
     });
@@ -374,10 +377,19 @@ io.on('connection', (socket) => {
     socket.on('join-stream', (streamId) => {
         const broadcaster = broadcasters[streamId];
         if (broadcaster) {
-            socket.join(streamId);
+            // Initialize tracking sets if needed
+            if (!streamListeners[streamId]) streamListeners[streamId] = new Set();
+            if (!socketStreams[socket.id]) socketStreams[socket.id] = new Set();
 
-            // Update listener count
-            broadcaster.currentListeners++;
+            // Check if this socket already joined (dedup)
+            const isNewListener = !streamListeners[streamId].has(socket.id);
+
+            socket.join(streamId);
+            streamListeners[streamId].add(socket.id);
+            socketStreams[socket.id].add(streamId);
+
+            // Update listener count from the authoritative Set
+            broadcaster.currentListeners = streamListeners[streamId].size;
             if (broadcaster.currentListeners > broadcaster.peakListeners) {
                 broadcaster.peakListeners = broadcaster.currentListeners;
             }
@@ -389,9 +401,13 @@ io.on('connection', (socket) => {
                 startTime: broadcaster.startTime
             });
 
-            // Notify broadcaster about new listener
-            io.to(broadcaster.socketId).emit('watcher', socket.id);
-            console.log(`Listener ${socket.id} joined stream ${streamId}. Current: ${broadcaster.currentListeners}`);
+            // Only notify broadcaster of NEW listeners (not re-joins)
+            if (isNewListener) {
+                io.to(broadcaster.socketId).emit('watcher', socket.id);
+                console.log(`Listener ${socket.id} joined stream ${streamId}. Current: ${broadcaster.currentListeners}`);
+            } else {
+                console.log(`Listener ${socket.id} re-joined stream ${streamId} (deduped). Current: ${broadcaster.currentListeners}`);
+            }
         } else {
             socket.emit('stream-not-found', { streamId });
         }
@@ -403,8 +419,12 @@ io.on('connection', (socket) => {
         if (broadcaster) {
             socket.leave(streamId);
 
-            // Decrement listener count
-            broadcaster.currentListeners = Math.max(0, broadcaster.currentListeners - 1);
+            // Remove from tracking sets
+            if (streamListeners[streamId]) streamListeners[streamId].delete(socket.id);
+            if (socketStreams[socket.id]) socketStreams[socket.id].delete(streamId);
+
+            // Update count from authoritative Set
+            broadcaster.currentListeners = streamListeners[streamId] ? streamListeners[streamId].size : 0;
 
             // Notify broadcaster
             io.to(broadcaster.socketId).emit('listener-left', socket.id);
@@ -464,6 +484,7 @@ io.on('connection', (socket) => {
             });
 
             delete broadcasters[streamId];
+            delete streamListeners[streamId];
             io.to(streamId).emit('stream-ended');
             console.log(`Stream ended by user action: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
         }
@@ -488,17 +509,25 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // Check if disconnecting socket was a listener
-        for (const [streamId, broadcaster] of Object.entries(broadcasters)) {
-            const room = io.sockets.adapter.rooms.get(streamId);
-            if (room && room.has(socket.id) && socket.id !== broadcaster.socketId) {
-                broadcaster.currentListeners = Math.max(0, broadcaster.currentListeners - 1);
+        // Use our own tracking (socketStreams) since Socket.IO already removed the socket from rooms
+        const streamsJoined = socketStreams[socket.id];
+        if (streamsJoined) {
+            for (const streamId of streamsJoined) {
+                const broadcaster = broadcasters[streamId];
+                if (broadcaster && socket.id !== broadcaster.socketId) {
+                    // Remove from stream's listener set
+                    if (streamListeners[streamId]) streamListeners[streamId].delete(socket.id);
 
-                // Notify broadcaster
-                io.to(broadcaster.socketId).emit('listener-left', socket.id);
+                    // Update count from authoritative Set
+                    broadcaster.currentListeners = streamListeners[streamId] ? streamListeners[streamId].size : 0;
 
-                console.log(`Listener left ${streamId}. Current: ${broadcaster.currentListeners}`);
+                    // Notify broadcaster
+                    io.to(broadcaster.socketId).emit('listener-left', socket.id);
+
+                    console.log(`Listener ${socket.id} disconnected from ${streamId}. Current: ${broadcaster.currentListeners}`);
+                }
             }
+            delete socketStreams[socket.id];
         }
 
         // Handle broadcaster disconnect with GRACE PERIOD
@@ -536,6 +565,7 @@ io.on('connection', (socket) => {
                     });
 
                     delete broadcasters[streamId];
+                    delete streamListeners[streamId];
                     delete disconnectTimeouts[streamId];
                     io.to(streamId).emit('stream-ended');
                     console.log(`Stream ended after timeout: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
