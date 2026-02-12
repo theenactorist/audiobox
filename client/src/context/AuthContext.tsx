@@ -18,7 +18,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+import { getServerUrl } from '@/lib/serverUrl';
+
+const API_BASE = getServerUrl();
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);

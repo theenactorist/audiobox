@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import io, { Socket } from 'socket.io-client';
 import { notifications } from '@mantine/notifications';
+import { getServerUrl } from '@/lib/serverUrl';
 
 export default function StudioPage() {
     const { user, isLoading, logout } = useAuth();
@@ -64,7 +65,7 @@ export default function StudioPage() {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+                const baseUrl = getServerUrl();
                 const response = await fetch(`${baseUrl}/api/history?userId=${user?.id}`);
                 const data = await response.json();
                 setHistoryData(data);
@@ -97,7 +98,7 @@ export default function StudioPage() {
 
     // Initialize Socket.IO connection
     useEffect(() => {
-        const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+        const baseUrl = getServerUrl();
         const socket = io(baseUrl);
         socketRef.current = socket;
 

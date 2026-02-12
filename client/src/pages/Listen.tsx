@@ -6,6 +6,7 @@ import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCir
 import Hls from 'hls.js';
 import { AudioVisualizer } from '@/components/AudioVisualizer';
 import io, { Socket } from 'socket.io-client';
+import { getServerUrl } from '@/lib/serverUrl';
 
 interface WakeLockSentinel {
     release: () => Promise<void>;
@@ -32,7 +33,7 @@ export default function ListenerPage() {
 
     // Poll for active streams AND listen for socket events
     useEffect(() => {
-        const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+        const baseUrl = getServerUrl();
 
         // Initialize socket for real-time updates
         const socket = io(baseUrl);
@@ -172,7 +173,7 @@ export default function ListenerPage() {
             return;
         }
 
-        const baseUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+        const baseUrl = getServerUrl();
         const hlsUrl = `${baseUrl}${activeStream.hlsUrl}`;
 
         console.log('Loading HLS stream:', hlsUrl);

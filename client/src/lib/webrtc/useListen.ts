@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getServerUrl } from '../serverUrl';
 
 const RTC_CONFIG = {
     iceServers: [
@@ -18,7 +19,7 @@ export function useListen(streamId: string) {
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setStatus('connecting');
-        const socketUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+        const socketUrl = getServerUrl();
         socketRef.current = io(socketUrl);
         const socket = socketRef.current;
 

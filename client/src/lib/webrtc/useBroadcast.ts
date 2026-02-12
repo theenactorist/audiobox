@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getServerUrl } from '../serverUrl';
 
 const RTC_CONFIG = {
     iceServers: [
@@ -46,7 +47,7 @@ export function useBroadcast(stream: MediaStream | null, streamId: string, title
     useEffect(() => {
         if (!stream) return;
 
-        const socketUrl = import.meta.env.VITE_SIGNALING_URL || 'http://localhost:3001';
+        const socketUrl = getServerUrl();
         socketRef.current = io(socketUrl);
         const socket = socketRef.current;
 
