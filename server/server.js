@@ -552,7 +552,7 @@ const clientDistPath = path.join(__dirname, '../client/dist');
 if (fs.existsSync(clientDistPath)) {
     app.use(express.static(clientDistPath));
     // Catch-all for client-side routing (SPA)
-    app.get('*', (req, res) => {
+    app.get('/{*path}', (req, res) => {
         // Don't catch API or HLS routes
         if (req.path.startsWith('/api') || req.path.startsWith('/hls') || req.path.startsWith('/socket.io')) {
             return res.status(404).json({ error: 'Not found' });
