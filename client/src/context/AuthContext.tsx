@@ -11,8 +11,7 @@ interface AppUser {
 interface AuthContextType {
     user: AppUser | null;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    register: (email: string, password: string) => Promise<void>;
+    login: (password: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -59,35 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         checkSession();
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (password: string) => {
         const res = await fetch(`${API_BASE}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ password }),
         });
 
         const data = await res.json();
 
         if (!res.ok) {
             throw new Error(data.error || 'Login failed');
-        }
-
-        localStorage.setItem('audiobox_token', data.token);
-        setUser(data.user);
-        navigate('/studio');
-    };
-
-    const register = async (email: string, password: string) => {
-        const res = await fetch(`${API_BASE}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.error || 'Registration failed');
         }
 
         localStorage.setItem('audiobox_token', data.token);
@@ -102,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

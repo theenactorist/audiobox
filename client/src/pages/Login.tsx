@@ -1,13 +1,14 @@
 
 import { useState } from 'react';
-import { TextInput, PasswordInput, Button, Container, Title, Paper, Text, Anchor, Stack, Alert, Group } from '@mantine/core';
+import { PasswordInput, Button, Container, Title, Paper, Text, Stack, Alert, Group } from '@mantine/core';
 import { useAuth } from '@/context/AuthContext';
 import { IconAlertCircle, IconArrowLeft, IconHeadphones } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
+const ADMIN_EMAIL = 'livestream.thenew@gmail.com';
+
 export default function LoginPage() {
     const { login } = useAuth();
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-            await login(email, password);
+            await login(password);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -36,9 +37,9 @@ export default function LoginPage() {
                 </Button>
             </Group>
 
-            <Title ta="center">Welcome back!</Title>
+            <Title ta="center">Admin Login</Title>
             <Text c="dimmed" size="sm" ta="center" mt={5}>
-                Sign in to your account
+                Sign in to the broadcasting studio
             </Text>
 
             <Paper withBorder shadow="md" p={30} mt={30} radius="md">
@@ -46,20 +47,12 @@ export default function LoginPage() {
                     <Stack>
                         {error && <Alert color="red" icon={<IconAlertCircle size={16} />}>{error}</Alert>}
 
-                        <TextInput
-                            label="Email"
-                            placeholder="you@example.com"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.currentTarget.value)}
-                            type="email"
-                            name="email"
-                            id="email"
-                            autoComplete="email"
-                        />
+                        <Text size="sm" fw={500} c="dimmed">Account</Text>
+                        <Text size="md" fw={600}>{ADMIN_EMAIL}</Text>
+
                         <PasswordInput
                             label="Password"
-                            placeholder="Your password"
+                            placeholder="Enter your password"
                             required
                             value={password}
                             onChange={(e) => setPassword(e.currentTarget.value)}
@@ -67,13 +60,6 @@ export default function LoginPage() {
                             id="password"
                             autoComplete="current-password"
                         />
-
-                        <Text c="dimmed" size="xs" mt="xs">
-                            Don't have an account?{' '}
-                            <Anchor component={Link} to="/register" size="xs">
-                                Create one
-                            </Anchor>
-                        </Text>
 
                         <Button fullWidth mt="xl" type="submit" loading={loading}>
                             Sign in

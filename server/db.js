@@ -1,4 +1,6 @@
 const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'audiobox.db');
@@ -31,6 +33,29 @@ db.exec(`
         FOREIGN KEY (user_id) REFERENCES users(id)
     );
 `);
+
+// Seed admin account on startup
+const ADMIN_EMAIL = 'livestream.thenew@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'wearethenewvoiceAI09';
+
+(async () => {
+    try {
+        const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(ADMIN_EMAIL);
+        if (!existing) {
+            const id = crypto.randomUUID();
+            const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+            db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run(id, ADMIN_EMAIL, passwordHash);
+            console.log(`Admin account created: ${ADMIN_EMAIL}`);
+        } else {
+            // Update password hash in case ADMIN_PASSWORD env var changed
+            const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+            db.prepare('UPDATE users SET password_hash = ? WHERE email = ?').run(passwordHash, ADMIN_EMAIL);
+            console.log(`Admin account exists: ${ADMIN_EMAIL} (password synced)`);
+        }
+    } catch (err) {
+        console.error('Error seeding admin account:', err);
+    }
+})();
 
 console.log('SQLite database initialized at', DB_PATH);
 

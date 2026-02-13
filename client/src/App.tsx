@@ -1,11 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MantineProvider, createTheme } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeToggle } from './components/ThemeToggle';
 import Home from './pages/Home';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import Studio from './pages/Studio';
 import Listen from './pages/Listen';
 
@@ -37,8 +36,6 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/signup" element={<Navigate to="/register" replace />} />
             <Route path="/studio" element={<Studio />} />
             <Route path="/listen" element={<Listen />} />
           </Routes>
