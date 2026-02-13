@@ -289,7 +289,7 @@ io.on('connection', (socket) => {
             const ffmpegCommand = ffmpeg(inputStream)
                 .inputFormat('webm')
                 .audioCodec('aac')
-                .audioBitrate('96k')
+                .audioBitrate('128k')
                 .outputOptions([
                     '-f hls',
                     '-hls_time 4',              // 4 second segments
