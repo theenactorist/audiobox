@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MantineProvider, createTheme } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { AuthProvider } from './context/AuthContext';
@@ -38,6 +38,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/studio" element={<Studio />} />
             <Route path="/listen" element={<Listen />} />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
+            <Route path="/signup" element={<Navigate to="/login" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
