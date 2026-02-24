@@ -80,7 +80,7 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
                 const kineticVal = Math.pow(normalizedVal, 1.2); // slight exponential curve for snap
 
                 // Scale to 8-100%
-                let percent = 8 + (kineticVal * 120); // allow it to clip slightly to push higher heights
+                let percent = 8 + (kineticVal * 90); // reduced from 120 to avoid flat-top clipping
                 percent = Math.max(8, Math.min(100, percent));
 
                 newBars.push(percent);
@@ -97,7 +97,7 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
     }, [active, analyser]);
 
     return (
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 140, padding: "12px 0" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: "100%", padding: "12px 0" }}>
             {bars.map((h, i) => (
                 <div
                     key={i}

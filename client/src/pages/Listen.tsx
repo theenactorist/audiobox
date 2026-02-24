@@ -519,7 +519,7 @@ export default function ListenerPage() {
                     const kineticVal = Math.pow(normalizedVal, 1.2);
 
                     // Scale 12-100% with extra amplification to push peak heights
-                    let percent = 12 + (kineticVal * 120);
+                    let percent = 12 + (kineticVal * 90);
                     percent = Math.max(12, Math.min(100, percent));
 
                     newBars.push(percent);
