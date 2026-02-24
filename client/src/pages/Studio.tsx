@@ -319,7 +319,7 @@ export default function StudioPage() {
                 }
             };
 
-            mediaRecorder.start(100);
+            mediaRecorder.start(1000); // 1-second chunks ensure proper Opus packet boundaries
             mediaRecorderRef.current = mediaRecorder;
         }
     }, [isLive, stream]);
