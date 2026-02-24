@@ -750,6 +750,8 @@ export default function StudioPage() {
                                             <Table.Tr>
                                                 <Table.Th>Date</Table.Th>
                                                 <Table.Th>Title</Table.Th>
+                                                <Table.Th>Time Went Live</Table.Th>
+                                                <Table.Th>Time Ended</Table.Th>
                                                 <Table.Th>Duration</Table.Th>
                                                 <Table.Th>Listeners</Table.Th>
                                             </Table.Tr>
@@ -765,6 +767,16 @@ export default function StudioPage() {
                                                     <Table.Td>
                                                         <Text size="sm" truncate style={{ maxWidth: 100 }}>
                                                             {item.title}
+                                                        </Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="sm">
+                                                            {new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="sm">
+                                                            {item.endTime ? new Date(item.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                                                         </Text>
                                                     </Table.Td>
                                                     <Table.Td>
