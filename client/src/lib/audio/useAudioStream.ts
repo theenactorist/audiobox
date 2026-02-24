@@ -8,7 +8,7 @@ export interface AudioStreamConfig {
 export function useAudioStream(config: AudioStreamConfig = {}) {
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<Error | null>(null);
-    const [volume, setVolume] = useState(1); // 0-1 range
+    const [volume, setVolume] = useState(70); // 0-100 range, mapped to gain 0-20.0
     const [isMuted, setIsMuted] = useState(false);
 
     const streamRef = useRef<MediaStream | null>(null);
@@ -43,8 +43,8 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             const gainNode = audioContext.createGain();
             const destination = audioContext.createMediaStreamDestination();
 
-            // Set initial volume
-            gainNode.gain.value = isMuted ? 0 : volume;
+            // Set initial volume: map 0-100 to 0-20.0 gain (where 20% on the old scale becomes 100%)
+            gainNode.gain.value = isMuted ? 0 : (volume / 100) * 20.0;
 
             // Connect: source -> gain -> destination
             source.connect(gainNode);
@@ -94,7 +94,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
     const updateVolume = useCallback((newVolume: number) => {
         setVolume(newVolume);
         if (gainNodeRef.current && !isMuted) {
-            gainNodeRef.current.gain.value = newVolume;
+            gainNodeRef.current.gain.value = (newVolume / 100) * 20.0;
         }
     }, [isMuted]);
 
@@ -102,7 +102,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         const newMuted = !isMuted;
         setIsMuted(newMuted);
         if (gainNodeRef.current) {
-            gainNodeRef.current.gain.value = newMuted ? 0 : volume;
+            gainNodeRef.current.gain.value = newMuted ? 0 : (volume / 100) * 20.0;
         }
     }, [isMuted, volume]);
 

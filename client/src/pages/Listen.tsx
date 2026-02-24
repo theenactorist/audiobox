@@ -19,7 +19,7 @@ interface LastPublicBroadcast {
 export default function ListenerPage() {
     const [activeStream, setActiveStream] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [volume, setVolume] = useState(40);
+    const [volume, setVolume] = useState(70);
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -313,7 +313,8 @@ export default function ListenerPage() {
     // Volume control
     useEffect(() => {
         if (audioRef.current) {
-            audioRef.current.volume = muted ? 0 : volume / 100;
+            // Map 0-100 UI value to 0-0.20 actual volume (so 20% is the new 100%)
+            audioRef.current.volume = muted ? 0 : (volume / 100) * 0.20;
         }
     }, [volume, muted]);
 
