@@ -246,9 +246,11 @@ io.on('connection', (socket) => {
                 // Update broadcaster socket ID
                 broadcasters[streamId].socketId = socket.id;
                 socket.join(streamId);
+                socket.emit('continue-stream');
                 return;
             } else {
                 console.warn(`Resuming stream ${streamId} but FFmpeg process is MISSING. Restarting stream...`);
+                socket.emit('restart-stream');
                 // Fall through to create new FFmpeg process
             }
         }

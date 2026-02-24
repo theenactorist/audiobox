@@ -1,0 +1,500 @@
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:03:20.88'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:03:28.91'
+FFmpeg progress for demo: {
+}
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:03:28.91'
+}
+}
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+FFmpeg progress for demo: {
+  targetSize: NaN,
+  timemark: '00:03:32.94'
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:03:49.03'
+}
+  currentKbps: NaN,
+FFmpeg progress for demo: {
+  targetSize: NaN,
+  frames: NaN,
+  timemark: '00:03:49.03'
+}
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:03:53.03'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:01.08'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:21.18'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+}
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:29.22'
+FFmpeg progress for demo: {
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:41.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:41.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentKbps: NaN,
+}
+  targetSize: NaN,
+  timemark: '00:04:53.35'
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  targetSize: NaN,
+FFmpeg progress for demo: {
+  timemark: '00:04:53.35'
+  frames: NaN,
+}
+  currentFps: NaN,
+  currentKbps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+}
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:53.35'
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  targetSize: NaN,
+  timemark: '00:04:57.35'
+}
+FFmpeg progress for demo: {
+  currentFps: NaN,
+  currentKbps: NaN,
+  frames: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.39'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:09.41'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+}
+  currentKbps: NaN,
+  targetSize: NaN,
+FFmpeg progress for demo: {
+  timemark: '00:05:13.43'
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  timemark: '00:05:25.50'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:29.52'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+Broadcaster disconnected for demo. Starting 30s grace period...
+User disconnected: 84p8QUeL1lN5_D5uAAAX
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+User connected: pufhoPOFYefM32EmAAAb
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:37.55'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+Cleared disconnect timeout for demo
+Resuming stream demo with new socket pufhoPOFYefM32EmAAAb and EXISTING FFmpeg process
+Resuming stream demo with new socket pufhoPOFYefM32EmAAAb and EXISTING FFmpeg process
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+Listener n6uM0pYdQw1Bl-dtAAAZ disconnected from demo. Current: 0
+User disconnected: n6uM0pYdQw1Bl-dtAAAZ
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+User connected: Nqgv4CaBCcrmixsTAAAd
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+Listener Nqgv4CaBCcrmixsTAAAd joined stream demo. Current: 1
+Listener Nqgv4CaBCcrmixsTAAAd re-joined stream demo (deduped). Current: 1
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+FFmpeg progress for demo: {
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+}
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+FFmpeg progress for demo: {
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  timemark: '00:06:07.26'
+}
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+FFmpeg progress for demo: {
+  frames: NaN,
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:06:07.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+  currentKbps: NaN,
+  targetSize: NaN,
+FFmpeg progress for demo: {
+  timemark: '00:06:07.26'
+}
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=18, Killed=false

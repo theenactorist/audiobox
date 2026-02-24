@@ -228,12 +228,12 @@ export default function StudioPage() {
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);
 
-            // If we are live, we MUST restart the MediaRecorder to send a new WebM header.
-            // Otherwise, FFmpeg will crash with "Invalid data found" (EBML header missing).
+            // If we are live, re-announce the stream. Do NOT restart the recorder yet.
+            // Wait for the server to tell us if FFmpeg is still alive ('continue-stream') 
+            // or if it crashed and needs a fresh header ('restart-stream').
             if (isLiveRef.current) {
-                console.log('Socket reconnected while live. Restarting recorder to send fresh header...');
+                console.log('Socket reconnected while live. Re-announcing stream to server...');
 
-                // 1. Re-announce stream to server
                 if (socketRef.current) {
                     socketRef.current.emit('start-stream', {
                         streamId: streamIdRef.current,
@@ -242,17 +242,23 @@ export default function StudioPage() {
                         userId: user?.id
                     });
                 }
+            }
+        });
 
-                // 2. Stop current recorder safely. 
-                // The main useEffect (line ~172) will see it's null and start a new one automatically.
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-                    try {
-                        mediaRecorderRef.current.stop();
-                    } catch (e) {
-                        console.warn('Safe stop of recorder failed:', e);
-                    }
-                    mediaRecorderRef.current = null;
+        socket.on('continue-stream', () => {
+            console.log('Server acknowledged stream continuation. FFmpeg is still alive, keeping existing recorder.');
+            // No action needed, MediaRecorder is already continuously piping chunks.
+        });
+
+        socket.on('restart-stream', () => {
+            console.warn('Server requested stream restart (FFmpeg process was lost). Restarting recorder to send fresh header...');
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                try {
+                    mediaRecorderRef.current.stop();
+                } catch (e) {
+                    console.warn('Safe stop of recorder failed:', e);
                 }
+                mediaRecorderRef.current = null;
             }
         });
 
