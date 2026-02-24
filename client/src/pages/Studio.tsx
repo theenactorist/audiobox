@@ -319,7 +319,7 @@ export default function StudioPage() {
                 }
             };
 
-            mediaRecorder.start(1000); // 1-second chunks ensure proper Opus packet boundaries
+            mediaRecorder.start(4000); // 4-second chunks align perfectly with FFmpeg's 4-second HLS segments
             mediaRecorderRef.current = mediaRecorder;
         }
     }, [isLive, stream]);
@@ -406,7 +406,7 @@ export default function StudioPage() {
                 });
             };
 
-            mediaRecorder.start(1000); // Send chunk every 1 second (more stable than 100ms)
+            mediaRecorder.start(4000); // 4-second chunks align perfectly with FFmpeg's 4-second HLS segments
             mediaRecorderRef.current = mediaRecorder;
 
             setIsLive(true);
