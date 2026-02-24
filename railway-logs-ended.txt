@@ -1,0 +1,200 @@
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=17, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:41.27'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=17, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=17, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=17, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:04:53.35'
+}
+  - Stream demo: PID=17, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+Attempting to run FFmpeg command for demo...
+Deleted old HLS file: demo70.ts
+HLS transcoding initialized for demo
+Deleted old HLS file: demo71.ts
+FFmpeg started for demo: ffmpeg -f webm -fflags +genpts -async 1 -i pipe:0 -y -acodec aac -b:a 128k -f hls -hls_time 4 -hls_list_size 10 -hls_flags delete_segments+omit_endlist -hls_segment_type mpegts /app/server/hls/demo.m3u8
+Deleted old HLS file: demo72.ts
+Deleted old HLS file: demo73.ts
+Deleted old HLS file: demo66.ts
+Deleted old HLS file: demo74.ts
+Deleted old HLS file: demo67.ts
+Deleted old HLS file: demo68.ts
+Deleted old HLS file: demo69.ts
+Deleted old HLS file: demo.m3u8
+Deleted old HLS file: demo64.ts
+Deleted old HLS file: demo65.ts
+Stream started: demo by ywk_qOWhJ9aIhNNgAAAL (User: c81d8fa0-62ac-4f52-a3d9-20eaffdb5434)
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=38, Killed=false
+Cleaning up stale stream demo (no HLS files found)
+Stream history saved to database
+  libavcodec     62. 11.100 / 62. 11.100
+  libavformat    62.  3.100 / 62.  3.100
+  libavdevice    62.  1.100 / 62.  1.100
+FFmpeg error for demo: ffmpeg exited with code 183: Error opening input file pipe:0.
+  libavfilter    11.  4.100 / 11.  4.100
+  built with gcc 15.2.0 (Alpine 15.2.0)
+  libswscale      9.  1.100 /  9.  1.100
+  libswresample   6.  1.100 /  6.  1.100
+  configuration: --prefix=/usr --disable-librtmp --disable-lzma --disable-static --disable-stripping --enable-avfilter --enable-gpl --enable-ladspa --enable-libaom --enable-libass --enable-libbluray --enable-libdav1d --enable-libdrm --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopenmpt --enable-libopus --enable-libplacebo --enable-libpulse --enable-librav1e --enable-librist --enable-libshaderc --enable-libsoxr --enable-libsrt --enable-libssh --enable-libtheora --enable-libv4l2 --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxml2 --enable-libxvid --enable-libzimg --enable-libzmq --enable-lto=auto --enable-lv2 --enable-openssl --enable-pic --enable-pthreads --enable-shared --enable-vaapi --enable-vdpau --enable-version3 --enable-vulkan --optflags=-O3 --enable-libsvtav1 --enable-libvpl
+Error opening input files: Invalid data found when processing input
+
+  libavutil      60.  8.100 / 60.  8.100
+FFmpeg stderr: ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+[matroska,webm @ 0x7efdef896380] EBML header parsing failed
+[in#0 @ 0x7efdeb03e940] Error opening input: Invalid data found when processing input
+Error opening input file pipe:0.
+Error opening input files: Invalid data found when processing input
+
+Buffered chunk for demo (Total: 1) - waiting for FFmpeg
+Buffered chunk for demo (Total: 2) - waiting for FFmpeg
+Buffered chunk for demo (Total: 3) - waiting for FFmpeg
+Buffered chunk for demo (Total: 4) - waiting for FFmpeg
+Buffered chunk for demo (Total: 5) - waiting for FFmpeg
+Buffered chunk for demo (Total: 6) - waiting for FFmpeg
+Buffered chunk for demo (Total: 7) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 8) - waiting for FFmpeg
+Buffered chunk for demo (Total: 9) - waiting for FFmpeg
+Buffered chunk for demo (Total: 10) - waiting for FFmpeg
+Buffered chunk for demo (Total: 11) - waiting for FFmpeg
+Buffered chunk for demo (Total: 12) - waiting for FFmpeg
+Buffered chunk for demo (Total: 13) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 14) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 15) - waiting for FFmpeg
+Buffered chunk for demo (Total: 16) - waiting for FFmpeg
+Buffered chunk for demo (Total: 17) - waiting for FFmpeg
+Buffered chunk for demo (Total: 18) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 19) - waiting for FFmpeg
+Buffered chunk for demo (Total: 20) - waiting for FFmpeg
+Buffered chunk for demo (Total: 21) - waiting for FFmpeg
+Buffered chunk for demo (Total: 22) - waiting for FFmpeg
+Buffered chunk for demo (Total: 23) - waiting for FFmpeg
+Buffered chunk for demo (Total: 24) - waiting for FFmpeg
+Buffered chunk for demo (Total: 25) - waiting for FFmpeg
+Buffered chunk for demo (Total: 26) - waiting for FFmpeg
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+Buffered chunk for demo (Total: 27) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 28) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+Buffered chunk for demo (Total: 29) - waiting for FFmpeg
+Buffered chunk for demo (Total: 30) - waiting for FFmpeg
+Buffered chunk for demo (Total: 31) - waiting for FFmpeg
+Buffered chunk for demo (Total: 32) - waiting for FFmpeg
+Buffered chunk for demo (Total: 33) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 34) - waiting for FFmpeg
+Buffered chunk for demo (Total: 35) - waiting for FFmpeg
+Buffered chunk for demo (Total: 36) - waiting for FFmpeg
+Buffered chunk for demo (Total: 37) - waiting for FFmpeg
+Buffered chunk for demo (Total: 38) - waiting for FFmpeg
+Buffered chunk for demo (Total: 39) - waiting for FFmpeg
+Buffered chunk for demo (Total: 40) - waiting for FFmpeg
+Buffered chunk for demo (Total: 41) - waiting for FFmpeg
+Buffered chunk for demo (Total: 42) - waiting for FFmpeg
+Buffered chunk for demo (Total: 43) - waiting for FFmpeg
+Buffered chunk for demo (Total: 44) - waiting for FFmpeg
+Buffered chunk for demo (Total: 45) - waiting for FFmpeg
+Buffered chunk for demo (Total: 46) - waiting for FFmpeg
+Buffered chunk for demo (Total: 47) - waiting for FFmpeg
+Buffered chunk for demo (Total: 48) - waiting for FFmpeg
+Buffered chunk for demo (Total: 49) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:05:01.38'
+}
+FFmpeg progress for demo: {
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg
+Buffered chunk for demo (Total: 50) - waiting for FFmpeg

@@ -280,6 +280,9 @@ io.on('connection', (socket) => {
             peakListeners: 0,
             userId: userId || 'anonymous'
         };
+        // CRITICAL: Clear any leftover chunks from previous sessions so the new FFmpeg process 
+        // receives a fresh WebM EBML header first, preventing "Invalid data found" crashes.
+        pendingChunks[streamId] = [];
         socket.join(streamId);
         console.log(`Stream started: ${streamId} by ${socket.id} (User: ${userId})`);
 
