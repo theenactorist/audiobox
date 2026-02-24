@@ -55,6 +55,8 @@ export default function StudioPage() {
     // HLS Broadcasting refs
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const socketRef = useRef<Socket | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wakeLockRef = useRef<any>(null);
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -321,6 +323,34 @@ export default function StudioPage() {
             mediaRecorderRef.current = mediaRecorder;
         }
     }, [isLive, stream]);
+
+    // Request wake lock to prevent device from sleeping while broadcasting
+    useEffect(() => {
+        const requestWakeLock = async () => {
+            try {
+                if ('wakeLock' in navigator && isLive && !isMonitoring) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+                    console.log('Wake lock activated');
+                }
+            } catch (err) {
+                console.log('Wake lock error:', err);
+            }
+        };
+
+        if (isLive && !isMonitoring) {
+            requestWakeLock();
+        }
+
+        return () => {
+            if (wakeLockRef.current) {
+                wakeLockRef.current.release().then(() => {
+                    console.log('Wake lock released');
+                    wakeLockRef.current = null;
+                });
+            }
+        };
+    }, [isLive, isMonitoring]);
 
     const handleStartBroadcast = async () => {
         if (!stream || !socketRef.current) {

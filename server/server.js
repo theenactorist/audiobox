@@ -321,6 +321,10 @@ io.on('connection', (socket) => {
             // Start FFmpeg process
             const ffmpegCommand = ffmpeg(inputStream)
                 .inputFormat('webm')
+                .inputOptions([
+                    '-fflags +genpts', // Generate missing timestamps (crucial for live WebM chunks)
+                    '-async 1'         // Sync audio to timestamps
+                ])
                 .audioCodec('aac')
                 .audioBitrate('128k')
                 .outputOptions([
