@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MantineProvider, createTheme } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { AuthProvider } from './context/AuthContext';
-import { ThemeToggle } from './components/ThemeToggle';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Studio from './pages/Studio';
@@ -30,7 +29,6 @@ function App() {
   return (
     <MantineProvider theme={theme} defaultColorScheme="auto">
       <Notifications />
-      <ThemeToggle />
       <BrowserRouter>
         <AuthProvider>
           <Routes>

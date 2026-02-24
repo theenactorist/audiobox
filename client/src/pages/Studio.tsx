@@ -1,16 +1,258 @@
 
 
-import { useState, useEffect, useRef } from 'react';
-import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Slider, Modal, Indicator, Alert } from '@mantine/core';
-import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff, IconWifi, IconWifiOff } from '@tabler/icons-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { IconCheck, IconMicrophone, IconUsers, IconWifi, IconWifiOff } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
-import { AudioVisualizer } from '@/components/AudioVisualizer';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import io, { Socket } from 'socket.io-client';
 import { notifications } from '@mantine/notifications';
 import { getServerUrl } from '@/lib/serverUrl';
+
+// Styled Constants from audiobox-dashboard.jsx
+const COLORS = {
+    bg: "#111714",
+    surface: "#1a2320",
+    surfaceHover: "#1f2b27",
+    border: "#2a3632",
+    borderLight: "#344440",
+    text: "#e8ede9",
+    textSecondary: "#8a9e94",
+    textMuted: "#5a6e64",
+    green: "#34d399",
+    greenDim: "#1a6b4d",
+    greenBg: "rgba(52, 211, 153, 0.08)",
+    greenBorder: "rgba(52, 211, 153, 0.2)",
+    red: "#f87171",
+    redBg: "rgba(248, 113, 113, 0.1)",
+    redBorder: "rgba(248, 113, 113, 0.25)",
+    amber: "#fbbf24",
+    yellow: "#facc15",
+};
+
+const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap";
+
+// Real Web Audio API visualizer using the 48 bars from the studio mock
+const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: AnalyserNode | null }) => {
+    const [bars, setBars] = useState<number[]>(Array(48).fill(0));
+    const animationRef = useRef<number>();
+
+    useEffect(() => {
+        if (!active || !analyser) {
+            setBars(Array(48).fill(0));
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            return;
+        }
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const update = () => {
+            analyser.getByteFrequencyData(dataArray);
+
+            // Map the 128 bins down to our 48 visualizer bars. 
+            // We'll average every ~2.6 bins.
+            const newBars = [];
+            const binsPerBar = 128 / 48;
+
+            for (let i = 0; i < 48; i++) {
+                let sum = 0;
+                const startIndex = Math.floor(i * binsPerBar);
+                const endIndex = Math.floor((i + 1) * binsPerBar);
+                const count = Math.max(1, endIndex - startIndex);
+
+                for (let j = startIndex; j < Math.max(startIndex + 1, endIndex); j++) {
+                    sum += dataArray[Math.min(127, j)];
+                }
+                const avg = sum / count;
+                // Scale 0-255 to 8-100%
+                const percent = Math.max(8, (avg / 255) * 100);
+                newBars.push(percent);
+            }
+
+            setBars(newBars);
+            animationRef.current = requestAnimationFrame(update);
+        };
+
+        update();
+        return () => {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+    }, [active, analyser]);
+
+    return (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 140, padding: "12px 0" }}>
+            {bars.map((h, i) => (
+                <div
+                    key={i}
+                    style={{
+                        flex: 1,
+                        height: `${active ? h : 8}%`,
+                        background: active
+                            ? h > 75 ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow})` : `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`
+                            : COLORS.border,
+                        borderRadius: 2,
+                        transition: active ? "height 0.05s ease" : "height 0.5s ease",
+                        opacity: active ? 1 : 0.4,
+                    }}
+                />
+            ))}
+        </div>
+    );
+};
+
+// Formatted timer calculation
+const LiveTimer = ({ startTimeStr }: { startTimeStr: Date | null }) => {
+    const [elapsed, setElapsed] = useState(0);
+
+    useEffect(() => {
+        if (!startTimeStr) { setElapsed(0); return; }
+        const start = startTimeStr.getTime();
+
+        const interval = setInterval(() => {
+            setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+        }, 1000);
+
+        // Initial call
+        setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+
+        return () => clearInterval(interval);
+    }, [startTimeStr]);
+
+    const hrs = String(Math.floor(elapsed / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
+    const secs = String(elapsed % 60).padStart(2, "0");
+    return <span style={{ fontVariantNumeric: "tabular-nums" }}>{hrs}:{mins}:{secs}</span>;
+}
+
+// Vertical Fader from UX Mock
+// Re-wired to consume 0-100 logic and call onVolumeChange
+function VerticalFader({ isMuted, onMuteToggle, volume, onVolumeChange }: { isMuted: boolean, onMuteToggle: () => void, volume: number, onVolumeChange: (val: number) => void }) {
+    const trackRef = useRef<HTMLDivElement>(null);
+    const dragging = useRef(false);
+
+    const DB_MARKS = [
+        { label: "0 dB", pct: 0 },
+        { label: "-6", pct: 20 },
+        { label: "-12", pct: 40 },
+        { label: "-24", pct: 65 },
+        { label: "-36", pct: 80 },
+        { label: "-∞", pct: 100 },
+    ];
+
+    const updateFromPointer = useCallback((e: React.PointerEvent) => {
+        if (!trackRef.current) return;
+        const rect = trackRef.current.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+        onVolumeChange(100 - pct); // invert so top is 100
+    }, [onVolumeChange]);
+
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        dragging.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        updateFromPointer(e);
+    }, [updateFromPointer]);
+
+    const handlePointerMove = useCallback((e: React.PointerEvent) => {
+        if (!dragging.current) return;
+        updateFromPointer(e);
+    }, [updateFromPointer]);
+
+    const handlePointerUp = useCallback(() => { dragging.current = false; }, []);
+
+    const faderPosition = 100 - volume;
+
+    // Render left and right fake meters reacting to the volume drag
+    const randomMeterHeight = isMuted ? 0 : Math.max(0, volume - 10 + Math.random() * 20);
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "stretch", gap: 8, height: 200 }}>
+                {/* dB labels */}
+                <div style={{ position: "relative", width: 28, height: "100%" }}>
+                    {DB_MARKS.map((m) => (
+                        <span key={m.label} style={{ position: "absolute", top: `${m.pct}%`, right: 0, transform: "translateY(-50%)", fontSize: 9, color: COLORS.textMuted, fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap" }}>{m.label}</span>
+                    ))}
+                </div>
+
+                {/* Left meter */}
+                <div style={{ width: 5, borderRadius: 3, background: COLORS.bg, border: `1px solid ${COLORS.border}`, position: "relative", overflow: "hidden" }}>
+                    <div style={{
+                        position: "absolute", bottom: 0, left: 0, right: 0,
+                        height: isMuted ? "0%" : `${randomMeterHeight}%`,
+                        background: volume > 85 ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow}, ${COLORS.red})` : volume > 60 ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow})` : COLORS.green,
+                        borderRadius: 3, transition: "height 0.15s ease",
+                    }} />
+                </div>
+
+                {/* Fader track */}
+                <div ref={trackRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}
+                    style={{ width: 28, position: "relative", cursor: "pointer", touchAction: "none", background: COLORS.bg, borderRadius: 6, border: `1px solid ${COLORS.border}` }}>
+                    <div style={{ position: "absolute", left: "50%", top: 8, bottom: 8, width: 2, background: COLORS.border, transform: "translateX(-50%)", borderRadius: 1 }} />
+                    {DB_MARKS.map((m) => (
+                        <div key={m.label} style={{ position: "absolute", top: `${m.pct}%`, left: 4, right: 4, height: 1, background: COLORS.border, transform: "translateY(-50%)" }} />
+                    ))}
+                    <div style={{
+                        position: "absolute", top: `${faderPosition}%`, left: 2, right: 2, height: 14, transform: "translateY(-50%)",
+                        background: isMuted ? COLORS.textMuted : "linear-gradient(to bottom, #e8ede9, #b0c4b8)",
+                        borderRadius: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.4)", border: `1px solid ${isMuted ? COLORS.border : "rgba(255,255,255,0.2)"}`, cursor: "grab",
+                    }}>
+                        <div style={{ position: "absolute", top: "50%", left: 5, right: 5, transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ height: 1, background: "rgba(0,0,0,0.25)", borderRadius: 1 }} />
+                            <div style={{ height: 1, background: "rgba(0,0,0,0.25)", borderRadius: 1 }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right meter */}
+                <div style={{ width: 5, borderRadius: 3, background: COLORS.bg, border: `1px solid ${COLORS.border}`, position: "relative", overflow: "hidden" }}>
+                    <div style={{
+                        position: "absolute", bottom: 0, left: 0, right: 0,
+                        height: isMuted ? "0%" : `${randomMeterHeight}%`,
+                        background: volume > 85 ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow}, ${COLORS.red})` : volume > 60 ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow})` : COLORS.green,
+                        borderRadius: 3, transition: "height 0.15s ease",
+                    }} />
+                </div>
+            </div>
+
+            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: isMuted ? COLORS.red : COLORS.textSecondary, fontWeight: 500 }}>
+                {isMuted ? "Muted" : `${Math.round(volume)}%`}
+            </div>
+
+            <button onClick={onMuteToggle} style={{
+                width: 36, height: 36, borderRadius: 8,
+                border: `1px solid ${isMuted ? COLORS.redBorder : COLORS.border}`,
+                background: isMuted ? COLORS.redBg : "transparent",
+                color: isMuted ? COLORS.red : COLORS.textSecondary,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s ease",
+            }}>
+                {isMuted ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
+                ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
+                )}
+            </button>
+        </div>
+    );
+}
+
+function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void, onCancel: () => void }) {
+    return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={onCancel}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: COLORS.surface, border: `1px solid ${COLORS.redBorder}`, borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", textAlign: "center" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: COLORS.redBg, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS.red} strokeWidth="2"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                </div>
+                <h3 style={{ color: COLORS.text, fontSize: 18, fontWeight: 600, margin: "0 0 8px", fontFamily: "'DM Sans', sans-serif" }}>End this broadcast?</h3>
+                <p style={{ color: COLORS.textSecondary, fontSize: 14, margin: "0 0 24px", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>Your stream will stop immediately and all listeners will be disconnected.</p>
+                <div style={{ display: "flex", gap: 12 }}>
+                    <button onClick={onCancel} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.textSecondary, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Keep streaming</button>
+                    <button onClick={onConfirm} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: COLORS.red, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>End stream</button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function StudioPage() {
     const { user, isLoading, logout } = useAuth();
@@ -21,7 +263,6 @@ export default function StudioPage() {
     const [isLive, setIsLive] = useState(false);
     const [streamId, setStreamId] = useState('demo'); // Default ID for MVP
     const [startTime, setStartTime] = useState<Date | null>(null);
-    const [elapsedTime, setElapsedTime] = useState('00:00:00');
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [listenerCount, setListenerCount] = useState(0);
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
@@ -127,21 +368,6 @@ export default function StudioPage() {
         const timeout = setTimeout(checkActiveStream, 1000);
         return () => clearTimeout(timeout);
     }, [user]);
-
-    // Timer effect
-    useEffect(() => {
-        if (!isLive || !startTime) return;
-
-        const interval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
-            const hours = Math.floor(elapsed / 3600);
-            const minutes = Math.floor((elapsed % 3600) / 60);
-            const seconds = elapsed % 60;
-            setElapsedTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [isLive, startTime]);
 
     // Initialize Socket.IO connection
     useEffect(() => {
@@ -285,7 +511,6 @@ export default function StudioPage() {
                 setIsLive(false);
                 setIsMonitoring(false);
                 setStartTime(null);
-                setElapsedTime('00:00:00');
                 setListenerCount(0);
                 localStorage.removeItem('streamState');
                 notifications.show({
@@ -465,10 +690,8 @@ export default function StudioPage() {
         // Clear localStorage
         localStorage.removeItem('streamState');
 
-        setIsLive(false);
         setIsMonitoring(false);
         setStartTime(null);
-        setElapsedTime('00:00:00');
         setListenerCount(0);
         setShowEndConfirmation(false);
         setHasUnsavedChanges(false);
@@ -547,294 +770,362 @@ export default function StudioPage() {
         }
     }, [stream, isLive]);
 
-    // CONDITIONAL RETURNS AFTER ALL HOOKS
-    if (!isMounted) {
-        return null;
-    }
+    // Setup Web Audio API Analyser for Visualizer when live
+    const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    useEffect(() => {
+        if (!stream || !isLive || isMonitoring) {
+            setAnalyser(null);
+            return;
+        }
+
+        try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaStreamSource(stream);
+            const newAnalyser = audioCtx.createAnalyser();
+            newAnalyser.fftSize = 256;
+            source.connect(newAnalyser);
+            setAnalyser(newAnalyser);
+
+            return () => {
+                try {
+                    newAnalyser.disconnect();
+                    source.disconnect();
+                    audioCtx.close();
+                } catch (e) {
+                    console.error("Cleanup error", e);
+                }
+            };
+        } catch (e) {
+            console.error("Visualizer context error", e);
+        }
+    }, [stream, isLive, isMonitoring]);
+
+    // Handle copying the listener URL
+    const handleCopyListenerLink = async () => {
+        try {
+            await navigator.clipboard.writeText(listenerUrl);
+            notifications.show({
+                title: 'Copied',
+                message: 'Listener link copied to clipboard',
+                color: 'green',
+                icon: <IconCheck size={16} />,
+            });
+        } catch (err) {
+            console.error('Failed to copy', err);
+        }
+    };
+
+    if (!isMounted) return null;
 
     if (isLoading) {
         return (
-            <Container size="lg" py="xl">
-                <Text>Loading...</Text>
-            </Container>
+            <div style={{ minHeight: "100vh", background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 40, height: 40, border: `3px solid ${COLORS.greenDim}`, borderTopColor: COLORS.green, borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            </div>
         );
     }
 
     return (
-        <Container size="xl" py="xl">
-            <Modal
-                opened={showEndConfirmation}
-                onClose={() => setShowEndConfirmation(false)}
-                title="End Broadcast?"
-                centered
-            >
-                <Stack>
-                    <Text size="sm">
-                        Are you sure you want to end the current broadcast? This action cannot be undone and all listeners will be disconnected.
-                    </Text>
-                    <Group justify="flex-end">
-                        <Button variant="light" onClick={() => setShowEndConfirmation(false)}>Cancel</Button>
-                        <Button color="red" onClick={handleStopStream}>End Broadcast</Button>
-                    </Group>
-                </Stack>
-            </Modal>
+        <>
+            <link href={linkFont} rel="stylesheet" />
+            <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
 
-            <Group justify="space-between" mb="xl">
-                <div>
-                    <Title order={2}>AudioBox</Title>
-                    <Text c="dimmed" size="sm">Your personal broadcasting station</Text>
-                </div>
-                <Group>
-                    <Tooltip label={isConnected ? "Connected to Server" : "Disconnected"}>
-                        <Indicator color={isConnected ? "green" : "red"} position="middle-end" size={10} processing>
-                            <Badge variant="light" pr={20}>
-                                {isConnected ? "Online" : "Offline"}
-                            </Badge>
-                        </Indicator>
-                    </Tooltip>
-                    <Badge size="lg" variant="light">
-                        {user?.email}
-                    </Badge>
-                    <ActionIcon variant="light" color="red" onClick={handleLogout}>
-                        <IconLogout size={18} />
-                    </ActionIcon>
-                </Group>
-            </Group>
+            {showEndConfirmation && <ConfirmModal onConfirm={handleStopStream} onCancel={() => setShowEndConfirmation(false)} />}
 
-            <Grid gutter="md">
-                <Grid.Col span={{ base: 12, md: 8 }}>
-                    <Stack gap="md">
-                        {/* Stream Setup */}
-                        <Card shadow="sm" padding="lg" radius="md" withBorder>
-                            <Stack gap="md">
-                                <Group justify="space-between">
-                                    <Text fw={500} size="lg">Stream Setup</Text>
-                                    {isLive && (
-                                        <Badge color="red" variant="dot" size="lg">
-                                            LIVE
-                                        </Badge>
+            <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+
+                {/* Header */}
+                <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${COLORS.border}`, flexWrap: "wrap", gap: 16 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>AudioBox</h1>
+                        <span style={{ fontSize: 13, color: COLORS.textMuted }}>Your personal broadcasting station</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <div style={{
+                            display: "flex", alignItems: "center", gap: 8, padding: "6px 14px",
+                            background: isConnected ? COLORS.greenBg : COLORS.redBg, borderRadius: 20, fontSize: 12, fontWeight: 600,
+                            color: isConnected ? COLORS.green : COLORS.red, textTransform: "uppercase", letterSpacing: "0.05em"
+                        }}>
+                            <div style={{ width: 7, height: 7, borderRadius: "50%", background: isConnected ? COLORS.green : COLORS.red, boxShadow: `0 0 6px ${isConnected ? COLORS.green : COLORS.red}` }} />
+                            {isConnected ? "Online" : "Offline"}
+                        </div>
+                        <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: "'JetBrains Mono', monospace" }}>
+                            {user?.email || 'Guest'}
+                        </span>
+                        <button
+                            onClick={handleLogout}
+                            style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, borderRadius: 6, transition: "background 0.2s" }}
+                            onMouseOver={(e) => e.currentTarget.style.background = COLORS.redBg}
+                            onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                            title="Log Out"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </button>
+                    </div>
+                </header>
+
+                {/* Live status bar */}
+                {isLive && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", background: "rgba(248,113,113,0.06)", borderBottom: `1px solid ${COLORS.redBorder}`, flexWrap: "wrap", gap: 16 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px", background: COLORS.redBg, borderRadius: 6, border: `1px solid ${COLORS.redBorder}` }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.red, animation: "pulse 1.5s ease-in-out infinite" }} />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.red, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                <span style={{ fontSize: 22, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: COLORS.text }}>
+                                    <LiveTimer startTimeStr={startTime} />
+                                </span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, color: COLORS.textSecondary, fontSize: 14 }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                <span style={{ fontWeight: 500 }}>{listenerCount} listener{listenerCount !== 1 ? "s" : ""}</span>
+                            </div>
+
+                            {!isMonitoring && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, color: isConnected ? COLORS.green : COLORS.red, fontSize: 13 }}>
+                                    {isConnected ? (
+                                        <>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                                            <span style={{ fontWeight: 500 }}>Signal strong</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.58 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></svg>
+                                            <span style={{ fontWeight: 500 }}>Signal lost</span>
+                                        </>
                                     )}
-                                </Group>
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={() => setShowEndConfirmation(true)} style={{ padding: "8px 20px", borderRadius: 8, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: COLORS.red, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                            End stream
+                        </button>
+                    </div>
+                )}
 
-                                <TextInput
-                                    label="Stream Title"
-                                    placeholder="My Awesome Stream"
-                                    value={title}
-                                    onChange={(e) => {
-                                        setTitle(e.currentTarget.value);
-                                        if (isLive) setHasUnsavedChanges(true);
-                                    }}
-                                />
+                {/* Main grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
 
-                                <Textarea
-                                    label="Description"
-                                    placeholder="Tell your listeners what this stream is about..."
-                                    value={description}
-                                    onChange={(e) => {
-                                        setDescription(e.currentTarget.value);
-                                        if (isLive) setHasUnsavedChanges(true);
-                                    }}
-                                    minRows={3}
-                                />
+                    {/* LEFT COLUMN */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
 
-                                {isLive && hasUnsavedChanges && (
-                                    <Button
-                                        variant="light"
-                                        color="blue"
+                        {/* Stream Setup */}
+                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 28 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between", marginBottom: 24 }}>
+                                <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Stream setup</h2>
+                                {isLive && hasUnsavedChanges ? (
+                                    <button
                                         onClick={handleMetadataUpdate}
-                                        fullWidth
+                                        style={{ fontSize: 12, background: COLORS.greenBg, border: `1px solid ${COLORS.greenBorder}`, color: COLORS.green, padding: "4px 12px", borderRadius: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
                                     >
-                                        Save Changes
-                                    </Button>
-                                )}
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                        Save changes
+                                    </button>
+                                ) : isLive ? (
+                                    <span style={{ fontSize: 12, color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                        Edits apply instantly
+                                    </span>
+                                ) : null}
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                                <div>
+                                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: COLORS.textSecondary, marginBottom: 8 }}>Stream title</label>
+                                    <input
+                                        type="text"
+                                        value={title}
+                                        onChange={(e) => {
+                                            setTitle(e.target.value);
+                                            if (isLive) setHasUnsavedChanges(true);
+                                        }}
+                                        placeholder="My Awesome Stream"
+                                        style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: COLORS.textSecondary, marginBottom: 8 }}>Description</label>
+                                    <textarea
+                                        value={description}
+                                        onChange={(e) => {
+                                            setDescription(e.target.value);
+                                            if (isLive) setHasUnsavedChanges(true);
+                                        }}
+                                        placeholder="Tell your listeners what this stream is about..."
+                                        rows={3}
+                                        style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }}
+                                    />
+                                </div>
 
                                 {isMonitoring && isLive && (
-                                    <Alert color="blue" variant="light" mb="xs">
-                                        <Text size="sm" fw={500}>📡 Monitoring Mode</Text>
-                                        <Text size="xs" c="dimmed">This stream is broadcasting from another device. You can monitor stats and end the stream from here.</Text>
-                                    </Alert>
+                                    <div style={{ background: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)", padding: 16, borderRadius: 10, marginTop: 8 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 600, color: "#60a5fa", display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+                                            Monitoring Mode
+                                        </div>
+                                        <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5 }}>
+                                            This stream is broadcasting from another device. You can monitor stats and end the stream from here.
+                                        </div>
+                                    </div>
                                 )}
 
                                 {!isMonitoring && (
-                                    <Select
-                                        label="Audio Input"
-                                        placeholder="Select microphone"
-                                        data={devices.map(d => ({ value: d.deviceId, label: d.label }))}
-                                        value={selectedDevice}
-                                        onChange={(value) => {
-                                            setSelectedDevice(value);
-                                            if (value) startStream(value);
+                                    <div>
+                                        <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: COLORS.textSecondary, marginBottom: 8 }}>Audio input</label>
+                                        <div style={{ position: "relative" }}>
+                                            <select
+                                                value={selectedDevice || ''}
+                                                onChange={(e) => {
+                                                    setSelectedDevice(e.target.value);
+                                                    if (e.target.value) startStream(e.target.value);
+                                                }}
+                                                style={{
+                                                    width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`,
+                                                    background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                                                    outline: "none", appearance: "none", boxSizing: "border-box", cursor: "pointer"
+                                                }}
+                                            >
+                                                <option value="" disabled>Select microphone</option>
+                                                {devices.map(d => (
+                                                    <option key={d.deviceId} value={d.deviceId}>{d.label || 'Unknown device'}</option>
+                                                ))}
+                                            </select>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                                                <polyline points="6 9 12 15 18 9" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {!isLive ? (
+                                !isMonitoring && (
+                                    <button
+                                        onClick={handleStartBroadcast}
+                                        disabled={!stream || !title.trim()}
+                                        style={{
+                                            width: "100%", marginTop: 28, padding: "16px", borderRadius: 12, border: "none",
+                                            background: stream && title.trim() ? `linear-gradient(135deg, ${COLORS.green}, #2bb37e)` : COLORS.border,
+                                            color: stream && title.trim() ? "#0a1a12" : COLORS.textMuted,
+                                            fontSize: 15, fontWeight: 700, cursor: stream && title.trim() ? "pointer" : "not-allowed",
+                                            fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                                            transition: "all 0.2s ease"
                                         }}
-                                    />
-                                )}
-
-                                {!isLive ? (
-                                    !isMonitoring && (
-                                        <Button
-                                            fullWidth
-                                            size="lg"
-                                            color="green"
-                                            leftSection={<IconMicrophone size={20} />}
-                                            onClick={handleStartBroadcast}
-                                            disabled={!stream || !title.trim()}
-                                        >
-                                            Go Live
-                                        </Button>
-                                    )
-                                ) : (
-                                    <Button
-                                        fullWidth
-                                        size="lg"
-                                        color="red"
-                                        leftSection={<IconPlayerStop size={20} />}
-                                        onClick={() => setShowEndConfirmation(true)}
                                     >
-                                        End Stream
-                                    </Button>
-                                )}
-                            </Stack>
-                        </Card>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
+                                        Go live
+                                    </button>
+                                )
+                            ) : (
+                                <button
+                                    onClick={() => setShowEndConfirmation(true)}
+                                    style={{
+                                        width: "100%", marginTop: 28, padding: "16px", borderRadius: 12, border: `1px solid ${COLORS.redBorder}`,
+                                        background: COLORS.bg, color: COLORS.red, fontSize: 15, fontWeight: 700, cursor: "pointer",
+                                        fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                                        transition: "background 0.2s"
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.background = COLORS.redBg}
+                                    onMouseOut={(e) => e.currentTarget.style.background = COLORS.bg}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                                    End stream
+                                </button>
+                            )}
+                        </div>
 
-                        {/* Live Monitor — only show on broadcasting device */}
-                        {stream && !isMonitoring && (
-                            <Card shadow="sm" padding="lg" radius="md" withBorder>
-                                <Stack gap="md">
-                                    <Text fw={500} size="lg">Live Monitor</Text>
-                                    <AudioVisualizer stream={stream} isPlaying={!!stream} />
+                        {/* Past Broadcasts */}
+                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24 }}>
+                            <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 20px" }}>Past broadcasts</h2>
 
-                                    <Group gap="xs" justify="space-between">
-                                        <ActionIcon
-                                            variant="light"
-                                            onClick={toggleMute}
-                                            size="lg"
-                                        >
-                                            {isMuted ? <IconVolumeOff size={20} /> : <IconVolume size={20} />}
-                                        </ActionIcon>
-                                        <div style={{ flex: 1 }}>
-                                            <Slider
-                                                value={volume}
-                                                onChange={updateVolume}
-                                                min={0}
-                                                max={100}
-                                                disabled={isMuted}
-                                                color="green"
-                                            />
+                            {historyData.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                    {historyData.slice(0, 10).map((item, i) => (
+                                        <div key={item.streamId} style={{ padding: "14px 0", borderBottom: i < historyData.slice(0, 10).length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
+                                            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.4 }}>
+                                                        {item.title}
+                                                    </div>
+                                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, fontSize: 13, color: COLORS.textMuted, flexWrap: "wrap" }}>
+                                                        <span>{new Date(item.startTime).toLocaleDateString()}</span>
+                                                        <span style={{ opacity: 0.4 }}>·</span>
+                                                        <span>{new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {item.endTime ? new Date(item.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ongoing'}</span>
+                                                        <span style={{ opacity: 0.4 }}>·</span>
+                                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                                            {item.peakListeners || 0} listener{item.peakListeners !== 1 ? "s" : ""}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.textSecondary, fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", paddingTop: 2 }}>
+                                                    {Math.floor(item.duration / 60)}m
+                                                </div>
+                                            </div>
                                         </div>
-                                    </Group>
-                                </Stack>
-                            </Card>
-                        )}
-                    </Stack>
-                </Grid.Col>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: 14, color: COLORS.textMuted, padding: "20px 0", textAlign: "center" }}>
+                                    No past broadcasts yet.
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                    <Stack gap="md">
-                        {/* Stats */}
-                        {isLive && (
-                            <Card shadow="sm" padding="lg" radius="md" withBorder>
-                                <Stack gap="sm">
-                                    <Text fw={500} size="lg">Stream Stats</Text>
+                    {/* RIGHT COLUMN */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-                                    <Group gap="xs">
-                                        <IconClock size={18} />
-                                        <div>
-                                            <Text size="xs" c="dimmed">Duration</Text>
-                                            <Text fw={600}>{elapsedTime}</Text>
-                                        </div>
-                                    </Group>
+                        {/* Listener Link */}
+                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
+                            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Listener link</label>
+                                    <div style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {listenerUrl.replace(/^https?:\/\//, '')}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleCopyListenerLink}
+                                    style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.green, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", flexShrink: 0 }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
 
-                                    <Group gap="xs">
-                                        <IconUsers size={18} />
-                                        <div>
-                                            <Text size="xs" c="dimmed">Listeners</Text>
-                                            <Text fw={600}>{listenerCount}</Text>
-                                        </div>
-                                    </Group>
-                                </Stack>
-                            </Card>
-                        )}
+                        {/* Audio Monitor */}
+                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
+                            <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Audio monitor</h2>
+                            {!isLive && !isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio levels will jump alive once you launch the stream.</p>}
+                            {isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio monitoring is disabled while in passive monitoring mode.</p>}
 
-                        {/* Share Link */}
-                        <Card shadow="sm" padding="lg" radius="md" withBorder>
-                            <Stack gap="sm">
-                                <Text fw={500} size="lg">Share Link</Text>
-                                <Text size="sm" c="dimmed" truncate>
-                                    {listenerUrl}
-                                </Text>
-                                <CopyButton value={listenerUrl} timeout={2000}>
-                                    {({ copied, copy }) => (
-                                        <Button
-                                            fullWidth
-                                            variant="light"
-                                            leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                                            onClick={copy}
-                                        >
-                                            {copied ? 'Copied!' : 'Copy Link'}
-                                        </Button>
-                                    )}
-                                </CopyButton>
-                            </Stack>
-                        </Card>
+                            {!isMonitoring && (
+                                <div style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
+                                    {/* Waveform */}
+                                    <div style={{ flex: 1, background: COLORS.bg, borderRadius: 12, padding: "8px 12px", border: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: 280 }}>
+                                        <StudioVisualizer active={isLive && !!stream} analyser={analyser} />
+                                    </div>
 
-                        {/* Stream History */}
-                        <Card shadow="sm" padding="lg" radius="md" withBorder>
-                            <Stack gap="sm">
-                                <Text fw={500} size="lg">Your History</Text>
-                                {historyData.length > 0 ? (
-                                    <Table>
-                                        <Table.Thead>
-                                            <Table.Tr>
-                                                <Table.Th>Date</Table.Th>
-                                                <Table.Th>Title</Table.Th>
-                                                <Table.Th>Time Went Live</Table.Th>
-                                                <Table.Th>Time Ended</Table.Th>
-                                                <Table.Th>Duration</Table.Th>
-                                                <Table.Th>Listeners</Table.Th>
-                                            </Table.Tr>
-                                        </Table.Thead>
-                                        <Table.Tbody>
-                                            {historyData.slice(0, 5).map((item) => (
-                                                <Table.Tr key={item.streamId}>
-                                                    <Table.Td>
-                                                        <Text size="sm">
-                                                            {new Date(item.startTime).toLocaleDateString()}
-                                                        </Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm" truncate style={{ maxWidth: 100 }}>
-                                                            {item.title}
-                                                        </Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm">
-                                                            {new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm">
-                                                            {item.endTime ? new Date(item.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                                                        </Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm">
-                                                            {Math.floor(item.duration / 60)}m
-                                                        </Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm">{item.peakListeners}</Text>
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))}
-                                        </Table.Tbody>
-                                    </Table>
-                                ) : (
-                                    <Text size="sm" c="dimmed">No streams yet</Text>
-                                )}
-                            </Stack>
-                        </Card>
-                    </Stack>
-                </Grid.Col>
-            </Grid>
-        </Container>
+                                    {/* Vertical fader */}
+                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: COLORS.bg, borderRadius: 12, padding: "16px 12px", border: `1px solid ${COLORS.border}` }}>
+                                        <div style={{ fontSize: 10, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>Vol</div>
+                                        <VerticalFader isMuted={isMuted} onMuteToggle={toggleMute} volume={volume} onVolumeChange={updateVolume} />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </>
     );
 }

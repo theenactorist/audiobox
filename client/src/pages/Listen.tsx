@@ -1,10 +1,9 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Container, Title, Text, Slider, ActionIcon, Group, Card, Badge, Stack, Button, CopyButton, Alert, Loader, Center, ThemeIcon } from '@mantine/core';
-import { IconVolume, IconVolumeOff, IconCopy, IconCheck, IconShare, IconAlertCircle, IconHeadphones } from '@tabler/icons-react';
+import { CopyButton } from '@mantine/core';
+import { IconAlertCircle, IconCheck, IconCopy, IconShare, IconVolume, IconVolumeOff } from '@tabler/icons-react';
 
 import Hls from 'hls.js';
-import { AudioVisualizer } from '@/components/AudioVisualizer';
 import io, { Socket } from 'socket.io-client';
 import { getServerUrl } from '@/lib/serverUrl';
 
@@ -329,188 +328,432 @@ export default function ListenerPage() {
         localStorage.setItem('installBannerDismissed', 'true');
     };
 
+    // Visualizer configuration
+    const COLORS = {
+        bg: "#111714",
+        surface: "#1a2320",
+        border: "#2a3632",
+        borderLight: "#344440",
+        text: "#e8ede9",
+        textSecondary: "#8a9e94",
+        textMuted: "#5a6e64",
+        green: "#34d399",
+        greenDim: "#1a6b4d",
+        greenBg: "rgba(52, 211, 153, 0.08)",
+        greenBorder: "rgba(52, 211, 153, 0.2)",
+        red: "#f87171",
+        redBg: "rgba(248, 113, 113, 0.1)",
+        redBorder: "rgba(248, 113, 113, 0.25)",
+    };
+
+    const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap";
+
     // Show loading state
     if (loading) {
         return (
-            <Container size="lg" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ marginBottom: '3rem' }}>
-                    <Title order={3} size={24} fw={900} style={{ letterSpacing: '-0.5px' }}>AudioBox</Title>
+            <>
+                <link href={linkFont} rel="stylesheet" />
+                <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", display: "flex", flexDirection: "column" }}>
+                    <header style={{ padding: "20px 32px", borderBottom: `1px solid ${COLORS.border}` }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>AudioBox</span>
+                    </header>
+                    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 40, height: 40, border: `3px solid ${COLORS.greenDim}`, borderTopColor: COLORS.green, borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                    </main>
                 </div>
-                <Center style={{ minHeight: 400 }}>
-                    <Loader size="lg" />
-                </Center>
-            </Container>
+            </>
         );
     }
 
     // Show offline state when no active stream
     if (!activeStream) {
         return (
-            <Container size="lg" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ marginBottom: '3rem' }}>
-                    <Title order={3} size={24} fw={900} style={{ letterSpacing: '-0.5px' }}>AudioBox</Title>
+            <>
+                <link href={linkFont} rel="stylesheet" />
+                <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", display: "flex", flexDirection: "column" }}>
+                    <header style={{ padding: "20px 32px", borderBottom: `1px solid ${COLORS.border}` }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>AudioBox</span>
+                    </header>
+                    <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px" }}>
+                        <div style={{ maxWidth: 520, width: "100%" }}>
+                            {/* Offline badge */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                                <div style={{
+                                    display: "flex", alignItems: "center", gap: 8,
+                                    padding: "5px 14px", background: "rgba(90,110,100,0.12)",
+                                    border: `1px solid ${COLORS.border}`, borderRadius: 20,
+                                }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.textMuted }} />
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Offline</span>
+                                </div>
+                            </div>
+
+                            {/* Offline card */}
+                            <div style={{
+                                background: COLORS.surface, borderRadius: 20,
+                                border: `1px solid ${COLORS.border}`, padding: "48px 32px",
+                                textAlign: "center",
+                            }}>
+                                {/* Icon */}
+                                <div style={{
+                                    width: 72, height: 72, borderRadius: "50%",
+                                    background: COLORS.bg, border: `1px solid ${COLORS.border}`,
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    margin: "0 auto 24px",
+                                }}>
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={COLORS.textMuted} strokeWidth="1.5">
+                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                        <line x1="12" y1="19" x2="12" y2="23" />
+                                        <line x1="8" y1="23" x2="16" y2="23" />
+                                    </svg>
+                                </div>
+
+                                <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 10px", letterSpacing: "-0.01em" }}>
+                                    No active broadcast
+                                </h1>
+                                <p style={{ fontSize: 15, color: COLORS.textSecondary, margin: "0 0 32px", lineHeight: 1.6 }}>
+                                    There's nothing streaming right now. Please check back later.
+                                </p>
+
+                                {/* Last broadcast info */}
+                                <div style={{
+                                    background: COLORS.bg, borderRadius: 12, padding: 18,
+                                    border: `1px solid ${COLORS.border}`, textAlign: "left",
+                                    marginBottom: 28,
+                                }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                                        Last broadcast
+                                    </div>
+                                    <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, lineHeight: 1.4, marginBottom: 6 }}>
+                                        Alliances - God's Perspective on Building Relationships in the Workplace
+                                    </div>
+                                    <div style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 14 }}>
+                                        Feb 24, 2026
+                                    </div>
+                                    <a
+                                        href="https://open.spotify.com/show/2Gv6dKj6o7zhOFrRosR4VH?si=3bfb72f34a214292"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                            padding: "10px 16px", borderRadius: 8,
+                                            background: "#1DB954", color: "#000", textDecoration: "none",
+                                            fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                                        </svg>
+                                        Listen again on Spotify
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
                 </div>
-
-                <Stack gap="xl">
-                    <Title order={1} size={48} fw={800} style={{ letterSpacing: '-1px' }}>
-                        Stay connected anywhere, anytime
-                    </Title>
-
-                    <Text size="xl" c="dimmed">Live Now</Text>
-
-                    <Card padding="xl" radius="md" withBorder style={{ maxWidth: 500 }}>
-                        <Group justify="space-between" mb="md">
-                            <Badge color="gray" variant="dot" size="lg">
-                                Offline
-                            </Badge>
-                            <ThemeIcon variant="light" color="gray" radius="xl">
-                                <IconHeadphones size={16} />
-                            </ThemeIcon>
-                        </Group>
-
-                        <Text fw={700} size="xl" mt="md">
-                            No Active Broadcast
-                        </Text>
-                        <Text size="md" c="dimmed" mt="xs" mb="xl">
-                            No streams are currently live. Check back later!
-                        </Text>
-
-                        <Button
-                            fullWidth
-                            color="gray"
-                            radius="md"
-                            size="lg"
-                            disabled
-                        >
-                            No Stream Available
-                        </Button>
-                    </Card>
-                </Stack>
-            </Container>
+            </>
         );
     }
 
-    // Show player when stream is active - RESTORED UI
-    return (
-        <Container size="lg" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <audio
-                ref={audioRef}
-                playsInline
-                style={{ display: 'none' }}
-            />
+    // Real Web Audio API visualizer using the 32 bars from the mock
+    const MiniVisualizer = ({ active, muted, analyser }: { active: boolean, muted: boolean, analyser: AnalyserNode | null }) => {
+        const [bars, setBars] = useState<number[]>(Array(32).fill(0));
+        const animationRef = useRef<number>();
 
-            {showInstallBanner && (
-                <Alert
-                    icon={<IconAlertCircle size={16} />}
-                    title="Install AudioBox"
-                    color="blue"
-                    withCloseButton
-                    onClose={dismissInstallBanner}
-                    mb="md"
-                    styles={{ closeButton: { color: 'inherit' } }}
-                >
-                    Install this app for background audio playback even when your screen is off.
-                </Alert>
-            )}
+        useEffect(() => {
+            if (!active || !analyser) {
+                setBars(Array(32).fill(0));
+                if (animationRef.current) cancelAnimationFrame(animationRef.current);
+                return;
+            }
 
-            <div style={{ marginBottom: '3rem' }}>
-                <Title order={3} size={24} fw={900} style={{ letterSpacing: '-0.5px' }}>AudioBox</Title>
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            const update = () => {
+                analyser.getByteFrequencyData(dataArray);
+
+                // Map the 128 bins down to our 32 visualizer bars. 
+                // We'll average every 4 bins.
+                const newBars = [];
+                for (let i = 0; i < 32; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < 4; j++) {
+                        sum += dataArray[i * 4 + j];
+                    }
+                    const avg = sum / 4;
+                    // Scale 0-255 to 12-100%
+                    const percent = Math.max(12, (avg / 255) * 100);
+                    newBars.push(percent);
+                }
+
+                setBars(newBars);
+                animationRef.current = requestAnimationFrame(update);
+            };
+
+            update();
+            return () => {
+                if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            };
+        }, [active, analyser]);
+
+        return (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 48 }}>
+                {bars.map((h, i) => (
+                    <div
+                        key={i}
+                        style={{
+                            flex: 1,
+                            height: `${active ? h : 12}%`,
+                            background: active
+                                ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`
+                                : COLORS.border,
+                            borderRadius: 1.5,
+                            transition: "height 0.05s ease",
+                            opacity: active ? (muted ? 0.25 : 0.8) : 0.3,
+                        }}
+                    />
+                ))}
             </div>
+        );
+    };
 
-            <Stack gap="xl">
-                <Title order={1} size={48} fw={800} style={{ letterSpacing: '-1px' }}>
-                    Stay connected anywhere, anytime
-                </Title>
+    // Formatted timer calculation
+    const ListenTimer = ({ startTimeStr }: { startTimeStr: string | undefined }) => {
+        const [elapsed, setElapsed] = useState(0);
 
-                <Text size="xl" c="dimmed">Live Now</Text>
+        useEffect(() => {
+            if (!startTimeStr) return;
+            const start = new Date(startTimeStr).getTime();
 
-                <Card padding="xl" radius="md" withBorder style={{ maxWidth: 500 }}>
-                    <Group justify="space-between" mb="md">
-                        <Badge color={isPlaying ? "green" : "green"} variant="dot" size="lg">
-                            {isPlaying ? "LIVE" : "CONNECTED"}
-                        </Badge>
-                        <ThemeIcon variant="light" color="green" radius="xl">
-                            <IconHeadphones size={16} />
-                        </ThemeIcon>
-                    </Group>
+            const interval = setInterval(() => {
+                setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+            }, 1000);
 
-                    <Text fw={700} size="xl" mt="md">
-                        {activeStream.title || 'Live Stream'}
-                    </Text>
-                    <Text size="md" c="dimmed" mt="xs" mb="xl">
-                        {activeStream.description || 'Experience high-fidelity audio streaming'}
-                    </Text>
+            // Initial call
+            setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
 
-                    {audioRef.current && isPlaying && (
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <AudioVisualizer
-                                analyser={analyser}
-                                isPlaying={isPlaying}
-                                height={120}
-                                width={500}
-                            />
+            return () => clearInterval(interval);
+        }, [startTimeStr]);
+
+        const mins = String(Math.floor(elapsed / 60)).padStart(2, "0");
+        const secs = String(elapsed % 60).padStart(2, "0");
+        return <span style={{ fontVariantNumeric: "tabular-nums" }}>{mins}:{secs}</span>;
+    };
+
+
+    const handleShareMock = async () => {
+        if ('share' in navigator) {
+            handleShare();
+        } else {
+            // Fallback for desktop browsers that don't support native share
+            try {
+                await (navigator as any).clipboard.writeText(currentUrl);
+                alert("Link copied to clipboard!");
+            } catch (err) {
+                console.error("Failed to copy link", err);
+            }
+        }
+    };
+
+
+    // Main Listen UI
+    return (
+        <>
+            <link href={linkFont} rel="stylesheet" />
+            <style>{`
+                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+                input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; outline: none; cursor: pointer; }
+                input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: ${COLORS.text}; border: 2px solid ${COLORS.surface}; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+                input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: ${COLORS.text}; border: 2px solid ${COLORS.surface}; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+            `}</style>
+
+            <audio ref={audioRef} playsInline style={{ display: 'none' }} />
+
+            <div style={{
+                minHeight: "100vh",
+                background: COLORS.bg,
+                color: COLORS.text,
+                fontFamily: "'DM Sans', sans-serif",
+                display: "flex",
+                flexDirection: "column",
+            }}>
+
+                {/* Header */}
+                <header style={{ padding: "20px 32px", borderBottom: `1px solid ${COLORS.border}` }}>
+                    <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>AudioBox</span>
+                </header>
+
+                {showInstallBanner && (
+                    <div style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <IconAlertCircle size={20} color={COLORS.green} />
+                            <span style={{ fontSize: 14, color: COLORS.textSecondary }}>Install this app for background audio playback when your screen is off.</span>
                         </div>
-                    )}
+                        <button onClick={dismissInstallBanner} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 18 }}>&times;</button>
+                    </div>
+                )}
 
-                    {!isPlaying ? (
-                        <Button
-                            fullWidth
-                            size="lg"
-                            color="green"
-                            onClick={handlePlay}
-                        >
-                            Start Listening
-                        </Button>
-                    ) : (
-                        <Group grow>
-                            <Stack gap="xs">
-                                <Group gap="xs" justify="space-between">
-                                    <ActionIcon
-                                        variant="light"
-                                        onClick={() => setMuted(!muted)}
-                                        size="lg"
-                                    >
-                                        {muted ? <IconVolumeOff size={20} /> : <IconVolume size={20} />}
-                                    </ActionIcon>
-                                    <div style={{ flex: 1 }}>
-                                        <Slider
-                                            value={volume}
-                                            onChange={setVolume}
-                                            min={0}
-                                            max={100}
-                                            disabled={muted}
-                                            color="green"
-                                        />
-                                    </div>
-                                </Group>
-                            </Stack>
-                        </Group>
-                    )}
+                {/* Main */}
+                <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px" }}>
+                    <div style={{ maxWidth: 520, width: "100%" }}>
 
-                    <Group grow mt="xl">
-                        <CopyButton value={currentUrl} timeout={2000}>
-                            {({ copied, copy }) => (
-                                <Button
-                                    variant="light"
-                                    leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                                    onClick={copy}
+                        {/* Live indicator + listener count */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                            <div style={{
+                                display: "flex", alignItems: "center", gap: 8, padding: "5px 14px",
+                                background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: 20,
+                            }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.red, animation: "pulse 1.5s ease-in-out infinite" }} />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.red, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live now</span>
+                            </div>
+                        </div>
+
+                        {/* Stream card */}
+                        <div style={{
+                            background: COLORS.surface, borderRadius: 20,
+                            border: `1px solid ${isPlaying ? COLORS.greenBorder : COLORS.border}`,
+                            padding: 32, transition: "border-color 0.3s ease",
+                        }}>
+                            <h1 style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.35, margin: "0 0 12px", letterSpacing: "-0.01em" }}>{activeStream.title || 'Live Broadcast'}</h1>
+
+                            <div style={{ marginBottom: 28 }}>
+                                <p style={{
+                                    fontSize: 14, lineHeight: 1.65, color: COLORS.textSecondary, margin: 0,
+                                    display: "-webkit-box", WebkitLineClamp: showInstallBanner ? "unset" : 2, // reusing this state for simplicity of porting
+                                    WebkitBoxOrient: "vertical", overflow: showInstallBanner ? "visible" : "hidden",
+                                }}>
+                                    {activeStream.description || 'Welcome to the live stream.'}
+                                </p>
+                                <button
+                                    onClick={() => setShowInstallBanner(!showInstallBanner)}
+                                    style={{ background: "none", border: "none", color: COLORS.green, fontSize: 13, fontWeight: 500, cursor: "pointer", padding: "4px 0 0", fontFamily: "'DM Sans', sans-serif" }}
                                 >
-                                    {copied ? 'Copied!' : 'Copy Link'}
-                                </Button>
+                                    {showInstallBanner ? "Show less" : "Read more"}
+                                </button>
+                            </div>
+
+                            {isPlaying && (
+                                <div style={{ marginBottom: 24 }}>
+                                    {/* Visualizer */}
+                                    <div style={{ background: COLORS.bg, borderRadius: 12, padding: "12px 16px", border: `1px solid ${COLORS.border}` }}>
+                                        <MiniVisualizer active={isPlaying} muted={muted} analyser={analyser} />
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                                            <span style={{ fontSize: 12, color: muted ? COLORS.textMuted : COLORS.green, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+                                                <div style={{
+                                                    width: 6, height: 6, borderRadius: "50%",
+                                                    background: muted ? COLORS.textMuted : COLORS.green,
+                                                    boxShadow: muted ? "none" : `0 0 6px ${COLORS.green}`,
+                                                }} />
+                                                {muted ? "Muted" : "Listening"}
+                                            </span>
+                                            <span style={{ fontSize: 12, color: COLORS.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>
+                                                <ListenTimer startTimeStr={activeStream.startTime} />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Volume control */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, padding: "10px 14px", background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}` }}>
+                                        <button
+                                            onClick={() => setMuted(!muted)}
+                                            style={{
+                                                width: 32, height: 32, borderRadius: 8,
+                                                border: `1px solid ${muted ? COLORS.redBorder : COLORS.border}`,
+                                                background: muted ? COLORS.redBg : "transparent",
+                                                color: muted ? COLORS.red : COLORS.textSecondary,
+                                                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                                flexShrink: 0, transition: "all 0.15s ease",
+                                            }}
+                                        >
+                                            {muted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
+                                        </button>
+
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={muted ? 0 : volume}
+                                            onChange={(e) => {
+                                                const val = Number(e.target.value);
+                                                setVolume(val);
+                                                if (val > 0 && muted) setMuted(false);
+                                                if (val === 0) setMuted(true);
+                                            }}
+                                            style={{ flex: 1, background: `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` }}
+                                        />
+
+                                        <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : COLORS.textSecondary, fontWeight: 500, minWidth: 38, textAlign: "right", flexShrink: 0 }}>
+                                            {muted ? "0%" : `${volume}%`}
+                                        </span>
+                                    </div>
+                                </div>
                             )}
-                        </CopyButton>
-                        {'share' in navigator && (
-                            <Button
-                                variant="light"
-                                leftSection={<IconShare size={16} />}
-                                onClick={handleShare}
-                            >
-                                Share
-                            </Button>
-                        )}
-                    </Group>
-                </Card>
-            </Stack>
-        </Container>
+
+                            {!isPlaying ? (
+                                <button
+                                    onClick={handlePlay}
+                                    style={{
+                                        width: "100%", padding: "18px", borderRadius: 14, border: "none",
+                                        background: `linear-gradient(135deg, ${COLORS.green}, #2bb37e)`,
+                                        color: "#0a1a12", fontSize: 16, fontWeight: 700, cursor: "pointer",
+                                        fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                                    }}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                                    Start listening
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setIsPlaying(false);
+                                        audioRef.current?.pause();
+                                    }}
+                                    style={{
+                                        width: "100%", padding: "18px", borderRadius: 14, border: `1px solid ${COLORS.border}`,
+                                        background: COLORS.bg, color: COLORS.text, fontSize: 16, fontWeight: 600, cursor: "pointer",
+                                        fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                                    }}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    Disconnect
+                                </button>
+                            )}
+
+                            {/* Share actions */}
+                            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                                <CopyButton value={currentUrl} timeout={2000}>
+                                    {({ copied, copy }) => (
+                                        <button
+                                            onClick={copy}
+                                            style={{
+                                                flex: 1, padding: "12px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "transparent",
+                                                color: copied ? COLORS.green : COLORS.textSecondary, fontSize: 13, fontWeight: 500, cursor: "pointer",
+                                                fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "color 0.2s ease",
+                                            }}
+                                        >
+                                            {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                                            {copied ? 'Copied' : 'Copy link'}
+                                        </button>
+                                    )}
+                                </CopyButton>
+                                <button
+                                    onClick={handleShareMock}
+                                    style={{
+                                        flex: 1, padding: "12px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "transparent",
+                                        color: COLORS.textSecondary, fontSize: 13, fontWeight: 500, cursor: "pointer",
+                                        fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                    }}
+                                >
+                                    <IconShare size={14} />
+                                    Share
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </>
     );
 }
