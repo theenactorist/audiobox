@@ -1,0 +1,195 @@
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/ad3cdf67-144c-4459-842c-9eece9fd0463/vol_o31uaa24i293iztp
+Found FFmpeg at /usr/bin/ffmpeg, setting path...
+[dotenv@17.2.3] injecting env (0) from ../.env.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+SQLite database initialized at /data/audiobox.db
+Serving built client from /app/client/dist
+Signaling server running on port 8080
+FFmpeg is installed and available: ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+Admin account exists: livestream.thenew@gmail.com (password synced)
+Starting Container
+User connected: npDoqA-ljGnQ7JP1AAAC
+User connected: Bfotsf2wFm24JDMqAAAD
+User connected: UNOkV_yFRuT6t36qAAAF
+Buffered chunk for demo (Total: 1) - waiting for FFmpeg
+Buffered chunk for demo (Total: 2) - waiting for FFmpeg
+Buffered chunk for demo (Total: 3) - waiting for FFmpeg
+Buffered chunk for demo (Total: 4) - waiting for FFmpeg
+Buffered chunk for demo (Total: 5) - waiting for FFmpeg
+Buffered chunk for demo (Total: 6) - waiting for FFmpeg
+Buffered chunk for demo (Total: 7) - waiting for FFmpeg
+Buffered chunk for demo (Total: 8) - waiting for FFmpeg
+Buffered chunk for demo (Total: 9) - waiting for FFmpeg
+Buffered chunk for demo (Total: 10) - waiting for FFmpeg
+Buffered chunk for demo (Total: 11) - waiting for FFmpeg
+Buffered chunk for demo (Total: 12) - waiting for FFmpeg
+Buffered chunk for demo (Total: 13) - waiting for FFmpeg
+Buffered chunk for demo (Total: 14) - waiting for FFmpeg
+Buffered chunk for demo (Total: 15) - waiting for FFmpeg
+Buffered chunk for demo (Total: 16) - waiting for FFmpeg
+Buffered chunk for demo (Total: 17) - waiting for FFmpeg
+Buffered chunk for demo (Total: 18) - waiting for FFmpeg
+User disconnected: npDoqA-ljGnQ7JP1AAAC
+User connected: nyvMEdpOsI7VnQ_FAAAH
+User disconnected: nyvMEdpOsI7VnQ_FAAAH
+User connected: X7beCT5SnCP66vUiAAAJ
+  audio_details: [ 'opus', '48000 Hz', 'stereo', 'fltp (default)' ]
+}
+User disconnected: UNOkV_yFRuT6t36qAAAF
+FFmpeg progress for demo: {
+Stream started: demo by X7beCT5SnCP66vUiAAAJ (User: c81d8fa0-62ac-4f52-a3d9-20eaffdb5434)
+  frames: NaN,
+Created HLS directory at /app/server/hls
+  currentFps: NaN,
+Attempting to run FFmpeg command for demo...
+  currentKbps: NaN,
+HLS transcoding initialized for demo
+FFmpeg started for demo: ffmpeg -f webm -fflags +genpts -async 1 -i pipe:0 -y -acodec aac -b:a 128k -f hls -hls_time 4 -hls_list_size 10 -hls_flags delete_segments+omit_endlist -hls_segment_type mpegts /app/server/hls/demo.m3u8
+  targetSize: NaN,
+Cleaning up stale stream demo (no HLS files found)
+Stream history saved to database
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+FFmpeg codec data for demo: {
+  format: 'matroska,webm',
+  audio: 'opus',
+  video: '',
+  duration: 'N/A',
+  timemark: '00:00:03.90'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+  currentFps: NaN,
+  currentKbps: NaN,
+FFmpeg progress for demo: {
+  targetSize: NaN,
+  frames: NaN,
+  timemark: '00:00:19.98'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:00:48.12'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:00:52.13'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:00:52.13'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:00:56.16'
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:01:08.22'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:01:16.26'
+}
+  timemark: '00:01:16.26'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:01:20.27'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+User disconnected: Bfotsf2wFm24JDMqAAAD
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:01:32.35'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:01:40.39'
+}
+FFmpeg progress for demo: {
+  frames: NaN,
+FFmpeg progress for demo: {
+  frames: NaN,
+  currentFps: NaN,
+  currentKbps: NaN,
+  targetSize: NaN,
+  timemark: '00:01:44.39'
+}
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false
+[Heartbeat] Active FFmpeg processes: 1 (demo)
+  - Stream demo: PID=16, Killed=false

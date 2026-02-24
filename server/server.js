@@ -122,7 +122,7 @@ app.get('/api/active-streams', (req, res) => {
     for (const [streamId, broadcaster] of Object.entries(broadcasters)) {
         const playlistFile = path.join(hlsDir, `${streamId}.m3u8`);
 
-        // Only include streams that actually have HLS files
+        // Only include streams that actually have HLS files (or fallback gracefully if just starting)
         if (fs.existsSync(playlistFile)) {
             activeStreams.push({
                 streamId,
@@ -133,29 +133,11 @@ app.get('/api/active-streams', (req, res) => {
                 hlsUrl: `/hls/${streamId}.m3u8`,
                 userId: broadcaster.userId
             });
-        } else {
-            // Auto-cleanup: remove stale broadcaster with no HLS files
-            console.log(`Cleaning up stale stream ${streamId} (no HLS files found)`);
-
-            // Save to history before cleanup
-            const endTime = new Date().toISOString();
-            const startTime = new Date(broadcaster.startTime);
-            const duration = Math.floor((new Date(endTime) - startTime) / 1000);
-            addToHistory({
-                streamId,
-                title: broadcaster.title,
-                description: broadcaster.description,
-                startTime: broadcaster.startTime,
-                endTime,
-                duration,
-                peakListeners: broadcaster.peakListeners,
-                userId: broadcaster.userId
-            });
-
-            delete broadcasters[streamId];
-            delete streamListeners[streamId];
-            io.to(streamId).emit('stream-ended');
         }
+        // CRITICAL BUG FIX: Removed the "else" block that deleted streams without an m3u8 file.
+        // A GET API should never have aggressive side-effects like killing a stream.
+        // Because FFmpeg takes ~4s to write the first .m3u8 file, querying this endpoint
+        // within the first 4 seconds of a stream was instantly killing it.
     }
 
     res.json(activeStreams);
