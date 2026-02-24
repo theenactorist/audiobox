@@ -116,14 +116,46 @@ setInterval(() => {
 
 // Get all active streams
 app.get('/api/active-streams', (req, res) => {
-    const activeStreams = Object.entries(broadcasters).map(([streamId, broadcaster]) => ({
-        streamId,
-        title: broadcaster.title,
-        description: broadcaster.description,
-        startTime: broadcaster.startTime,
-        listenerCount: broadcaster.currentListeners,
-        hlsUrl: `/hls/${streamId}.m3u8`
-    }));
+    const hlsDir = path.join(__dirname, 'hls');
+    const activeStreams = [];
+
+    for (const [streamId, broadcaster] of Object.entries(broadcasters)) {
+        const playlistFile = path.join(hlsDir, `${streamId}.m3u8`);
+
+        // Only include streams that actually have HLS files
+        if (fs.existsSync(playlistFile)) {
+            activeStreams.push({
+                streamId,
+                title: broadcaster.title,
+                description: broadcaster.description,
+                startTime: broadcaster.startTime,
+                listenerCount: broadcaster.currentListeners,
+                hlsUrl: `/hls/${streamId}.m3u8`
+            });
+        } else {
+            // Auto-cleanup: remove stale broadcaster with no HLS files
+            console.log(`Cleaning up stale stream ${streamId} (no HLS files found)`);
+
+            // Save to history before cleanup
+            const endTime = new Date().toISOString();
+            const startTime = new Date(broadcaster.startTime);
+            const duration = Math.floor((new Date(endTime) - startTime) / 1000);
+            addToHistory({
+                streamId,
+                title: broadcaster.title,
+                description: broadcaster.description,
+                startTime: broadcaster.startTime,
+                endTime,
+                duration,
+                peakListeners: broadcaster.peakListeners,
+                userId: broadcaster.userId
+            });
+
+            delete broadcasters[streamId];
+            delete streamListeners[streamId];
+            io.to(streamId).emit('stream-ended');
+        }
+    }
 
     res.json(activeStreams);
 });
