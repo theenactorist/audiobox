@@ -182,11 +182,11 @@ export default function ListenerPage() {
             const hls = new Hls({
                 debug: false,
                 enableWorker: true,
-                lowLatencyMode: true,
+                lowLatencyMode: false, // Turn off strict low latency to prevent stalling
                 backBufferLength: 90,
-                maxBufferLength: 30,
-                liveSyncDurationCount: 3,
-                liveMaxLatencyDurationCount: 10,
+                maxBufferLength: 60, // Increase buffer tolerance
+                liveSyncDurationCount: 4, // Wait for at least 4 segments (16s) to sync, prevents starvation
+                liveMaxLatencyDurationCount: 15,
                 manifestLoadingTimeOut: 10000,
                 manifestLoadingMaxRetry: 10,
                 levelLoadingTimeOut: 10000,
