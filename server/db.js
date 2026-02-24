@@ -44,6 +44,18 @@ db.exec(`
     );
 `);
 
+// Run migrations
+try {
+    const tableInfo = db.pragma('table_info(stream_history)');
+    const hasIsPublic = tableInfo.some(col => col.name === 'is_public');
+    if (!hasIsPublic) {
+        db.exec('ALTER TABLE stream_history ADD COLUMN is_public BOOLEAN DEFAULT 1;');
+        console.log('Migrated: Added is_public column to stream_history');
+    }
+} catch (e) {
+    console.error('Migration error:', e);
+}
+
 // Seed admin account on startup
 const ADMIN_EMAIL = 'livestream.thenew@gmail.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'wearethenewvoiceAI09';
