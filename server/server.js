@@ -155,11 +155,33 @@ app.get('/api/stream-status/:streamId', (req, res) => {
                 title: broadcaster.title,
                 description: broadcaster.description,
                 startTime: broadcaster.startTime,
-                listenerCount: broadcaster.currentListeners
+                listenerCount: broadcaster.currentListeners,
+                isPublic: broadcaster.isPublic
             }
         });
     } else {
         res.json({ isLive: false });
+    }
+});
+
+// Get the latest public broadcast for the Listen page offline state
+app.get('/api/latest-public-broadcast', (req, res) => {
+    try {
+        const stmt = db.prepare('SELECT title, start_time FROM stream_history WHERE is_public = 1 ORDER BY start_time DESC LIMIT 1');
+        const data = stmt.get();
+
+        if (data) {
+            res.json({
+                hasBroadcast: true,
+                title: data.title,
+                startTime: data.start_time
+            });
+        } else {
+            res.json({ hasBroadcast: false });
+        }
+    } catch (err) {
+        console.error('Error fetching latest public broadcast:', err);
+        res.status(500).json({ error: 'Failed to fetch latest public broadcast' });
     }
 });
 
@@ -172,7 +194,7 @@ const io = new Server(httpServer, {
     }
 });
 
-const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId }
+const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId, isPublic }
 const hlsStreams = {}; // streamId -> { ffmpegProcess, inputStream }
 const disconnectTimeouts = {}; // streamId -> timeoutId
 const pendingChunks = {}; // streamId -> [Buffer]
@@ -183,8 +205,8 @@ const socketStreams = {}; // socketId -> Set<streamId> — tracks which streams 
 function addToHistory(streamData) {
     try {
         db.prepare(`
-            INSERT INTO stream_history (stream_id, title, description, start_time, end_time, duration, peak_listeners, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO stream_history (stream_id, title, description, start_time, end_time, duration, peak_listeners, user_id, is_public)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             streamData.streamId,
             streamData.title,
@@ -193,7 +215,8 @@ function addToHistory(streamData) {
             streamData.endTime,
             streamData.duration,
             streamData.peakListeners,
-            streamData.userId
+            streamData.userId,
+            streamData.isPublic ? 1 : 0
         );
         console.log('Stream history saved to database');
     } catch (err) {
@@ -228,7 +251,7 @@ io.on('connection', (socket) => {
 
     // Creator starts a stream with metadata
     socket.on('start-stream', (data) => {
-        const { streamId, title, description, userId } = data;
+        const { streamId, title, description, userId, isPublic } = data;
 
         // Check if this is a resumption of an existing stream
         if (broadcasters[streamId]) {
@@ -262,7 +285,8 @@ io.on('connection', (socket) => {
             description: description || '',
             currentListeners: 0,
             peakListeners: 0,
-            userId: userId || 'anonymous'
+            userId: userId || 'anonymous',
+            isPublic: isPublic !== undefined ? isPublic : true
         };
         // CRITICAL: Clear any leftover chunks from previous sessions so the new FFmpeg process 
         // receives a fresh WebM EBML header first, preventing "Invalid data found" crashes.

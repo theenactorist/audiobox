@@ -266,6 +266,7 @@ export default function StudioPage() {
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [listenerCount, setListenerCount] = useState(0);
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
+    const [isPublic, setIsPublic] = useState(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
     const [isMonitoring, setIsMonitoring] = useState(false); // Browser B: monitoring only, no audio pipeline
@@ -409,6 +410,7 @@ export default function StudioPage() {
                             streamId: savedStreamId,
                             title: savedTitle,
                             description: savedDescription,
+                            isPublic: parsedState.isPublic !== undefined ? parsedState.isPublic : true,
                             userId: user?.id
                         });
                     }
@@ -465,6 +467,7 @@ export default function StudioPage() {
                         streamId: streamIdRef.current,
                         title: titleRef.current,
                         description: descriptionRef.current,
+                        isPublic: isPublic,
                         userId: user?.id
                     });
                 }
@@ -600,6 +603,7 @@ export default function StudioPage() {
                 streamId,
                 title: title || 'Untitled Stream',
                 description: description || '',
+                isPublic: isPublic,
                 userId: user?.id
             });
 
@@ -608,6 +612,7 @@ export default function StudioPage() {
                 streamId,
                 title,
                 description,
+                isPublic,
                 startTime: new Date().toISOString()
             }));
 
@@ -728,7 +733,8 @@ export default function StudioPage() {
                 localStorage.setItem('streamState', JSON.stringify({
                     ...state,
                     title,
-                    description
+                    description,
+                    isPublic
                 }));
             }
 
@@ -773,7 +779,7 @@ export default function StudioPage() {
     // Setup Web Audio API Analyser for Visualizer when live
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
     useEffect(() => {
-        if (!stream || !isLive || isMonitoring) {
+        if (!stream || isMonitoring) {
             setAnalyser(null);
             return;
         }
@@ -799,7 +805,7 @@ export default function StudioPage() {
         } catch (e) {
             console.error("Visualizer context error", e);
         }
-    }, [stream, isLive, isMonitoring]);
+    }, [stream, isMonitoring]);
 
     // Handle copying the listener URL
     const handleCopyListenerLink = async () => {
@@ -1002,6 +1008,29 @@ export default function StudioPage() {
                                         </div>
                                     </div>
                                 )}
+
+                                {!isMonitoring && (
+                                    <div>
+                                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "14px 16px" }}>
+                                            <div>
+                                                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, marginBottom: 2 }}>Public Broadcast</div>
+                                                <div style={{ fontSize: 12, color: COLORS.textMuted }}>{isPublic ? "Visible to everyone on the Listen page" : "Unlisted test stream (Hidden from Listen page)"}</div>
+                                            </div>
+                                            <div style={{ position: "relative", width: 44, height: 24, borderRadius: 12, background: isPublic ? COLORS.green : COLORS.border, transition: "background 0.2s" }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isPublic}
+                                                    onChange={(e) => {
+                                                        setIsPublic(e.target.checked);
+                                                        if (isLive) setHasUnsavedChanges(true);
+                                                    }}
+                                                    style={{ opacity: 0, width: "100%", height: "100%", position: "absolute", cursor: "pointer", zIndex: 2 }}
+                                                />
+                                                <div style={{ position: "absolute", top: 2, left: isPublic ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s cubic-bezier(0.4, 0, 0.2, 1)", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }} />
+                                            </div>
+                                        </label>
+                                    </div>
+                                )}
                             </div>
 
                             {!isLive ? (
@@ -1104,14 +1133,14 @@ export default function StudioPage() {
                         {/* Audio Monitor */}
                         <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Audio monitor</h2>
-                            {!isLive && !isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio levels will jump alive once you launch the stream.</p>}
+                            {!stream && !isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Select an audio input to test your levels before going live.</p>}
                             {isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio monitoring is disabled while in passive monitoring mode.</p>}
 
                             {!isMonitoring && (
                                 <div style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
                                     {/* Waveform */}
                                     <div style={{ flex: 1, background: COLORS.bg, borderRadius: 12, padding: "8px 12px", border: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: 280 }}>
-                                        <StudioVisualizer active={isLive && !!stream} analyser={analyser} />
+                                        <StudioVisualizer active={!!stream} analyser={analyser} />
                                     </div>
 
                                     {/* Vertical fader */}

@@ -38,6 +38,7 @@ db.exec(`
         duration INTEGER,
         peak_listeners INTEGER DEFAULT 0,
         user_id TEXT,
+        is_public BOOLEAN DEFAULT 1,
         created_at TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (user_id) REFERENCES users(id)
     );
