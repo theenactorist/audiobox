@@ -50,23 +50,39 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
         const update = () => {
             analyser.getByteFrequencyData(dataArray);
 
-            // Map the 128 bins down to our 48 visualizer bars. 
-            // We'll average every ~2.6 bins.
             const newBars = [];
-            const binsPerBar = 128 / 48;
+
+            // We only care about the lower half of frequencies (approx 0-11kHz) for human voice/music
+            // Use a logarithmic/exponential curve to map bins to bars, giving more detail to lower/mid frequencies
+            const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
 
             for (let i = 0; i < 48; i++) {
-                let sum = 0;
-                const startIndex = Math.floor(i * binsPerBar);
-                const endIndex = Math.floor((i + 1) * binsPerBar);
-                const count = Math.max(1, endIndex - startIndex);
+                // Logarithmic index mapping: i^2 / 48^2 * usefulBins
+                // This stretches out the lower bins (bass/vocals) across more bars, 
+                // and compresses the high frequency bins into fewer bars.
+                const startRatio = Math.pow(i / 48, 2);
+                const endRatio = Math.pow((i + 1) / 48, 2);
 
-                for (let j = startIndex; j < Math.max(startIndex + 1, endIndex); j++) {
-                    sum += dataArray[Math.min(127, j)];
+                const startIndex = Math.floor(startRatio * usefulBins);
+                let endIndex = Math.floor(endRatio * usefulBins);
+                if (endIndex <= startIndex) endIndex = startIndex + 1;
+
+                let sum = 0;
+                for (let j = startIndex; j < endIndex; j++) {
+                    sum += dataArray[j] || 0;
                 }
+                const count = endIndex - startIndex;
                 const avg = sum / count;
-                // Scale 0-255 to 8-100%
-                const percent = Math.max(8, (avg / 255) * 100);
+
+                // Make the UI much more sensitive/kinetic
+                // Map the 0-255 byte value to a 0-1 percentage, then apply a curve
+                const normalizedVal = avg / 255;
+                const kineticVal = Math.pow(normalizedVal, 1.2); // slight exponential curve for snap
+
+                // Scale to 8-100%
+                let percent = 8 + (kineticVal * 120); // allow it to clip slightly to push higher heights
+                percent = Math.max(8, Math.min(100, percent));
+
                 newBars.push(percent);
             }
 

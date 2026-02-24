@@ -493,17 +493,35 @@ export default function ListenerPage() {
             const update = () => {
                 analyser.getByteFrequencyData(dataArray);
 
-                // Map the 128 bins down to our 32 visualizer bars. 
-                // We'll average every 4 bins.
                 const newBars = [];
+
+                // Logarithmic frequency mapping focusing on the lower 60% of bins (vocal range)
+                const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
+
                 for (let i = 0; i < 32; i++) {
+                    // Stretches low frequencies across more bars, compresses highs
+                    const startRatio = Math.pow(i / 32, 2);
+                    const endRatio = Math.pow((i + 1) / 32, 2);
+
+                    const startIndex = Math.floor(startRatio * usefulBins);
+                    let endIndex = Math.floor(endRatio * usefulBins);
+                    if (endIndex <= startIndex) endIndex = startIndex + 1;
+
                     let sum = 0;
-                    for (let j = 0; j < 4; j++) {
-                        sum += dataArray[i * 4 + j];
+                    for (let j = startIndex; j < endIndex; j++) {
+                        sum += dataArray[j] || 0;
                     }
-                    const avg = sum / 4;
-                    // Scale 0-255 to 12-100%
-                    const percent = Math.max(12, (avg / 255) * 100);
+                    const count = endIndex - startIndex;
+                    const avg = sum / count;
+
+                    // Apply slight exponential curve for more "snap"
+                    const normalizedVal = avg / 255;
+                    const kineticVal = Math.pow(normalizedVal, 1.2);
+
+                    // Scale 12-100% with extra amplification to push peak heights
+                    let percent = 12 + (kineticVal * 120);
+                    percent = Math.max(12, Math.min(100, percent));
+
                     newBars.push(percent);
                 }
 
