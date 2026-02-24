@@ -130,7 +130,8 @@ app.get('/api/active-streams', (req, res) => {
                 description: broadcaster.description,
                 startTime: broadcaster.startTime,
                 listenerCount: broadcaster.currentListeners,
-                hlsUrl: `/hls/${streamId}.m3u8`
+                hlsUrl: `/hls/${streamId}.m3u8`,
+                userId: broadcaster.userId
             });
         } else {
             // Auto-cleanup: remove stale broadcaster with no HLS files
@@ -480,10 +481,11 @@ io.on('connection', (socket) => {
 
     // Handle explicit stream end (before disconnect)
     socket.on('end-stream', (data) => {
-        const { streamId } = data;
+        const { streamId, userId } = data;
         const broadcaster = broadcasters[streamId];
 
-        if (broadcaster && broadcaster.socketId === socket.id) {
+        // Allow end-stream from the broadcaster socket OR any socket with matching userId
+        if (broadcaster && (broadcaster.socketId === socket.id || (userId && broadcaster.userId === userId))) {
             // Clear any pending timeout just in case
             if (disconnectTimeouts[streamId]) {
                 clearTimeout(disconnectTimeouts[streamId]);

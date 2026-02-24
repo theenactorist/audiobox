@@ -1,7 +1,7 @@
 
 
 import { useState, useEffect, useRef } from 'react';
-import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Slider, Modal, Indicator } from '@mantine/core';
+import { Container, Title, TextInput, Textarea, Select, Button, Group, Stack, Card, Text, Badge, CopyButton, ActionIcon, Tooltip, Table, Grid, Slider, Modal, Indicator, Alert } from '@mantine/core';
 import { IconCopy, IconCheck, IconMicrophone, IconUsers, IconClock, IconPlayerStop, IconLogout, IconVolume, IconVolumeOff, IconWifi, IconWifiOff } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
@@ -27,6 +27,7 @@ export default function StudioPage() {
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [isMonitoring, setIsMonitoring] = useState(false); // Browser B: monitoring only, no audio pipeline
 
     const [isMounted, setIsMounted] = useState(false);
 
@@ -79,6 +80,50 @@ export default function StudioPage() {
             const interval = setInterval(fetchHistory, 30000);
             return () => clearInterval(interval);
         }
+    }, [user]);
+
+    // Check for existing active streams on mount (multi-device support)
+    useEffect(() => {
+        if (!user) return;
+
+        const checkActiveStream = async () => {
+            try {
+                const baseUrl = getServerUrl();
+                const response = await fetch(`${baseUrl}/api/active-streams`);
+                const streams = await response.json();
+
+                // Find a stream belonging to this user
+                const myStream = streams.find((s: any) => s.userId === user.id);
+
+                if (myStream && !isLive) {
+                    console.log('Found active stream from another device:', myStream.streamId);
+                    setStreamId(myStream.streamId);
+                    setTitle(myStream.title || '');
+                    setDescription(myStream.description || '');
+                    setStartTime(new Date(myStream.startTime));
+                    setListenerCount(myStream.listenerCount || 0);
+                    setIsLive(true);
+                    setIsMonitoring(true); // This device is monitoring only
+
+                    // Join the stream room for real-time updates
+                    if (socketRef.current) {
+                        socketRef.current.emit('join-stream', { streamId: myStream.streamId });
+                    }
+
+                    notifications.show({
+                        title: 'Active Stream Detected',
+                        message: 'You have a live stream running on another device. Monitoring mode enabled.',
+                        color: 'blue',
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to check active streams:', err);
+            }
+        };
+
+        // Slight delay to let socket connect first
+        const timeout = setTimeout(checkActiveStream, 1000);
+        return () => clearTimeout(timeout);
     }, [user]);
 
     // Timer effect
@@ -225,6 +270,29 @@ export default function StudioPage() {
             setListenerCount((prev) => Math.max(0, prev - 1));
         });
 
+        // Listen for stream-ended (if another device ends the stream)
+        socket.on('stream-ended', () => {
+            if (isLiveRef.current) {
+                console.log('Stream ended by another device');
+                setIsLive(false);
+                setIsMonitoring(false);
+                setStartTime(null);
+                setElapsedTime('00:00:00');
+                setListenerCount(0);
+                localStorage.removeItem('streamState');
+                notifications.show({
+                    title: 'Stream Ended',
+                    message: 'The broadcast was ended from another device',
+                    color: 'blue',
+                });
+            }
+        });
+
+        // Periodically sync listener count for monitoring devices
+        socket.on('listener-count', (data: { streamId: string, count: number }) => {
+            setListenerCount(data.count);
+        });
+
         return () => {
             socket.disconnect();
         };
@@ -355,13 +423,14 @@ export default function StudioPage() {
         }
 
         if (socketRef.current) {
-            socketRef.current.emit('end-stream', { streamId });
+            socketRef.current.emit('end-stream', { streamId, userId: user?.id });
         }
 
         // Clear localStorage
         localStorage.removeItem('streamState');
 
         setIsLive(false);
+        setIsMonitoring(false);
         setStartTime(null);
         setElapsedTime('00:00:00');
         setListenerCount(0);
@@ -543,28 +612,39 @@ export default function StudioPage() {
                                     </Button>
                                 )}
 
-                                <Select
-                                    label="Audio Input"
-                                    placeholder="Select microphone"
-                                    data={devices.map(d => ({ value: d.deviceId, label: d.label }))}
-                                    value={selectedDevice}
-                                    onChange={(value) => {
-                                        setSelectedDevice(value);
-                                        if (value) startStream(value);
-                                    }}
-                                />
+                                {isMonitoring && isLive && (
+                                    <Alert color="blue" variant="light" mb="xs">
+                                        <Text size="sm" fw={500}>📡 Monitoring Mode</Text>
+                                        <Text size="xs" c="dimmed">This stream is broadcasting from another device. You can monitor stats and end the stream from here.</Text>
+                                    </Alert>
+                                )}
+
+                                {!isMonitoring && (
+                                    <Select
+                                        label="Audio Input"
+                                        placeholder="Select microphone"
+                                        data={devices.map(d => ({ value: d.deviceId, label: d.label }))}
+                                        value={selectedDevice}
+                                        onChange={(value) => {
+                                            setSelectedDevice(value);
+                                            if (value) startStream(value);
+                                        }}
+                                    />
+                                )}
 
                                 {!isLive ? (
-                                    <Button
-                                        fullWidth
-                                        size="lg"
-                                        color="green"
-                                        leftSection={<IconMicrophone size={20} />}
-                                        onClick={handleStartBroadcast}
-                                        disabled={!stream || !title.trim()}
-                                    >
-                                        Go Live
-                                    </Button>
+                                    !isMonitoring && (
+                                        <Button
+                                            fullWidth
+                                            size="lg"
+                                            color="green"
+                                            leftSection={<IconMicrophone size={20} />}
+                                            onClick={handleStartBroadcast}
+                                            disabled={!stream || !title.trim()}
+                                        >
+                                            Go Live
+                                        </Button>
+                                    )
                                 ) : (
                                     <Button
                                         fullWidth
@@ -579,8 +659,8 @@ export default function StudioPage() {
                             </Stack>
                         </Card>
 
-                        {/* Live Monitor */}
-                        {stream && (
+                        {/* Live Monitor — only show on broadcasting device */}
+                        {stream && !isMonitoring && (
                             <Card shadow="sm" padding="lg" radius="md" withBorder>
                                 <Stack gap="md">
                                     <Text fw={500} size="lg">Live Monitor</Text>
