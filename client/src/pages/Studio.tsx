@@ -855,14 +855,17 @@ export default function StudioPage() {
             <link href={linkFont} rel="stylesheet" />
             <style>{`
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+                .studio-root, .studio-root * { box-sizing: border-box; }
+                .studio-root { overflow-x: hidden; max-width: 100vw; }
                 @media (max-width: 768px) {
                     .studio-header { padding: 12px 16px !important; }
                     .studio-header .header-subtitle { display: none; }
+                    .studio-header .header-email { display: none; }
                     .studio-live-bar { padding: 10px 16px !important; }
                     .studio-main-grid {
                         grid-template-columns: 1fr !important;
-                        padding: 20px 16px !important;
-                        gap: 20px !important;
+                        padding: 16px !important;
+                        gap: 16px !important;
                     }
                     .studio-right-col { order: -1; }
                     .studio-audio-monitor-row {
@@ -871,12 +874,20 @@ export default function StudioPage() {
                     .studio-audio-monitor-row > div:first-child {
                         min-height: 180px !important;
                     }
+                    .studio-card {
+                        padding: 16px !important;
+                        border-radius: 12px !important;
+                    }
+                    .studio-card-sm {
+                        padding: 14px !important;
+                        border-radius: 12px !important;
+                    }
                 }
             `}</style>
 
             {showEndConfirmation && <ConfirmModal onConfirm={handleStopStream} onCancel={() => setShowEndConfirmation(false)} />}
 
-            <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+            <div className="studio-root" style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
 
                 {/* Header */}
                 <header className="studio-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${COLORS.border}`, flexWrap: "wrap", gap: 16 }}>
@@ -893,7 +904,7 @@ export default function StudioPage() {
                             <div style={{ width: 7, height: 7, borderRadius: "50%", background: isConnected ? COLORS.green : COLORS.red, boxShadow: `0 0 6px ${isConnected ? COLORS.green : COLORS.red}` }} />
                             {isConnected ? "Online" : "Offline"}
                         </div>
-                        <span style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: "'JetBrains Mono', monospace" }}>
+                        <span className="header-email" style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: "'JetBrains Mono', monospace" }}>
                             {user?.email || 'Guest'}
                         </span>
                         <button
@@ -957,7 +968,7 @@ export default function StudioPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
 
                         {/* Stream Setup */}
-                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 28 }}>
+                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 28 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between", marginBottom: 24 }}>
                                 <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Stream setup</h2>
                                 {isLive && hasUnsavedChanges ? (
@@ -1106,7 +1117,7 @@ export default function StudioPage() {
                         </div>
 
                         {/* Past Broadcasts */}
-                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24 }}>
+                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24 }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 20px" }}>Past broadcasts</h2>
 
                             {historyData.length > 0 ? (
@@ -1148,7 +1159,7 @@ export default function StudioPage() {
                     <div className="studio-right-col" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
                         {/* Listener Link */}
-                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
+                        <div className="studio-card-sm" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
                             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Listener link</label>
@@ -1167,7 +1178,7 @@ export default function StudioPage() {
                         </div>
 
                         {/* Audio Monitor */}
-                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
+                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Audio monitor</h2>
                             {!stream && !isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Select an audio input to test your levels before going live.</p>}
                             {isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio monitoring is disabled while in passive monitoring mode.</p>}
