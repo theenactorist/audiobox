@@ -853,17 +853,36 @@ export default function StudioPage() {
     return (
         <>
             <link href={linkFont} rel="stylesheet" />
-            <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+            <style>{`
+                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+                @media (max-width: 768px) {
+                    .studio-header { padding: 12px 16px !important; }
+                    .studio-header .header-subtitle { display: none; }
+                    .studio-live-bar { padding: 10px 16px !important; }
+                    .studio-main-grid {
+                        grid-template-columns: 1fr !important;
+                        padding: 20px 16px !important;
+                        gap: 20px !important;
+                    }
+                    .studio-right-col { order: -1; }
+                    .studio-audio-monitor-row {
+                        flex-direction: column !important;
+                    }
+                    .studio-audio-monitor-row > div:first-child {
+                        min-height: 180px !important;
+                    }
+                }
+            `}</style>
 
             {showEndConfirmation && <ConfirmModal onConfirm={handleStopStream} onCancel={() => setShowEndConfirmation(false)} />}
 
             <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
 
                 {/* Header */}
-                <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${COLORS.border}`, flexWrap: "wrap", gap: 16 }}>
+                <header className="studio-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${COLORS.border}`, flexWrap: "wrap", gap: 16 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
                         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>AudioBox</h1>
-                        <span style={{ fontSize: 13, color: COLORS.textMuted }}>Your personal broadcasting station</span>
+                        <span className="header-subtitle" style={{ fontSize: 13, color: COLORS.textMuted }}>Your personal broadcasting station</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                         <div style={{
@@ -891,7 +910,7 @@ export default function StudioPage() {
 
                 {/* Live status bar */}
                 {isLive && (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", background: "rgba(248,113,113,0.06)", borderBottom: `1px solid ${COLORS.redBorder}`, flexWrap: "wrap", gap: 16 }}>
+                    <div className="studio-live-bar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", background: "rgba(248,113,113,0.06)", borderBottom: `1px solid ${COLORS.redBorder}`, flexWrap: "wrap", gap: 16 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px", background: COLORS.redBg, borderRadius: 6, border: `1px solid ${COLORS.redBorder}` }}>
                                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.red, animation: "pulse 1.5s ease-in-out infinite" }} />
@@ -932,7 +951,7 @@ export default function StudioPage() {
                 )}
 
                 {/* Main grid */}
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
+                <div className="studio-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
 
                     {/* LEFT COLUMN */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
@@ -1126,7 +1145,7 @@ export default function StudioPage() {
                     </div>
 
                     {/* RIGHT COLUMN */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    <div className="studio-right-col" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
                         {/* Listener Link */}
                         <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
@@ -1154,7 +1173,7 @@ export default function StudioPage() {
                             {isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio monitoring is disabled while in passive monitoring mode.</p>}
 
                             {!isMonitoring && (
-                                <div style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
+                                <div className="studio-audio-monitor-row" style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
                                     {/* Waveform */}
                                     <div style={{ flex: 1, background: COLORS.bg, borderRadius: 12, padding: "8px 12px", border: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: 280 }}>
                                         <StudioVisualizer active={!!stream} analyser={analyser} />
