@@ -336,10 +336,10 @@ export default function ListenerPage() {
     // Volume control
     useEffect(() => {
         if (audioRef.current) {
-            // Map 0-100 UI value to 0-0.20 actual volume (so 20% is the new 100%)
-            audioRef.current.volume = muted ? 0 : (volume / 100) * 0.20;
+            // Map 0-100 UI value to 0.0-1.0 (standard HTML audio volume range)
+            audioRef.current.volume = muted ? 0 : volume / 100;
         }
-    }, [volume, muted]);
+    }, [volume, muted, isPlaying]); // include isPlaying so volume is applied when playback starts
 
     const handlePlay = async () => {
         if (audioRef.current) {
