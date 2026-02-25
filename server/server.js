@@ -421,26 +421,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Listener joins a stream
+    // Listener joins a stream (for metadata updates only)
     socket.on('join-stream', (streamId) => {
         const broadcaster = broadcasters[streamId];
         if (broadcaster) {
-            // Initialize tracking sets if needed
-            if (!streamListeners[streamId]) streamListeners[streamId] = new Set();
-            if (!socketStreams[socket.id]) socketStreams[socket.id] = new Set();
-
-            // Check if this socket already joined (dedup)
-            const isNewListener = !streamListeners[streamId].has(socket.id);
-
             socket.join(streamId);
-            streamListeners[streamId].add(socket.id);
-            socketStreams[socket.id].add(streamId);
-
-            // Update listener count from the authoritative Set
-            broadcaster.currentListeners = streamListeners[streamId].size;
-            if (broadcaster.currentListeners > broadcaster.peakListeners) {
-                broadcaster.peakListeners = broadcaster.currentListeners;
-            }
 
             // Send stream metadata to the listener
             socket.emit('stream-metadata', {
@@ -448,36 +433,59 @@ io.on('connection', (socket) => {
                 description: broadcaster.description,
                 startTime: broadcaster.startTime
             });
-
-            // Only notify broadcaster of NEW listeners (not re-joins)
-            if (isNewListener) {
-                io.to(broadcaster.socketId).emit('watcher', socket.id);
-                console.log(`Listener ${socket.id} joined stream ${streamId}. Current: ${broadcaster.currentListeners}`);
-            } else {
-                console.log(`Listener ${socket.id} re-joined stream ${streamId} (deduped). Current: ${broadcaster.currentListeners}`);
-            }
         } else {
             socket.emit('stream-not-found', { streamId });
         }
     });
 
-    // Listener leaves a stream
-    socket.on('leave-stream', (streamId) => {
+    // Listener actively starts hearing audio
+    socket.on('start-listening', (streamId) => {
         const broadcaster = broadcasters[streamId];
         if (broadcaster) {
-            socket.leave(streamId);
+            if (!streamListeners[streamId]) streamListeners[streamId] = new Set();
+            if (!socketStreams[socket.id]) socketStreams[socket.id] = new Set();
 
-            // Remove from tracking sets
+            const isNewListener = !streamListeners[streamId].has(socket.id);
+
+            streamListeners[streamId].add(socket.id);
+            socketStreams[socket.id].add(streamId);
+
+            broadcaster.currentListeners = streamListeners[streamId].size;
+            if (broadcaster.currentListeners > broadcaster.peakListeners) {
+                broadcaster.peakListeners = broadcaster.currentListeners;
+            }
+
+            if (isNewListener) {
+                io.to(broadcaster.socketId).emit('watcher', socket.id);
+                console.log(`Listener ${socket.id} started listening to stream ${streamId}. Current: ${broadcaster.currentListeners}`);
+            }
+        }
+    });
+
+    // Listener stops hearing audio (pauses or disconnects)
+    socket.on('stop-listening', (streamId) => {
+        const broadcaster = broadcasters[streamId];
+        if (broadcaster) {
             if (streamListeners[streamId]) streamListeners[streamId].delete(socket.id);
             if (socketStreams[socket.id]) socketStreams[socket.id].delete(streamId);
 
-            // Update count from authoritative Set
             broadcaster.currentListeners = streamListeners[streamId] ? streamListeners[streamId].size : 0;
-
-            // Notify broadcaster
             io.to(broadcaster.socketId).emit('listener-left', socket.id);
+            console.log(`Listener ${socket.id} stopped listening to stream ${streamId}. Current: ${broadcaster.currentListeners}`);
+        }
+    });
 
-            console.log(`Listener ${socket.id} left stream ${streamId}. Current: ${broadcaster.currentListeners}`);
+    // Listener completely leaves the page/stream
+    socket.on('leave-stream', (streamId) => {
+        socket.leave(streamId);
+
+        const broadcaster = broadcasters[streamId];
+        if (broadcaster) {
+            if (streamListeners[streamId]) streamListeners[streamId].delete(socket.id);
+            if (socketStreams[socket.id]) socketStreams[socket.id].delete(streamId);
+
+            broadcaster.currentListeners = streamListeners[streamId] ? streamListeners[streamId].size : 0;
+            io.to(broadcaster.socketId).emit('listener-left', socket.id);
         }
     });
 

@@ -181,6 +181,23 @@ export default function ListenerPage() {
         }
     }, [isPlaying]);
 
+    // Track active listening status for broadcaster counts
+    useEffect(() => {
+        const socket = socketRef.current;
+        if (!socket || !activeStream) return;
+
+        if (isPlaying) {
+            socket.emit('start-listening', activeStream.streamId);
+        } else {
+            socket.emit('stop-listening', activeStream.streamId);
+        }
+
+        return () => {
+            // Guarantee cleanup if component unmounts or stream changes
+            socket.emit('stop-listening', activeStream.streamId);
+        };
+    }, [isPlaying, activeStream]);
+
     // Setup HLS player
     useEffect(() => {
         if (!activeStream || !audioRef.current) {
