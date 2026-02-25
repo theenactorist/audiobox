@@ -308,6 +308,7 @@ export default function StudioPage() {
     // Prevent hydration mismatch by only rendering after mount
     useEffect(() => {
         setIsMounted(true);
+        document.title = 'Studio | AudioBox';
     }, []);
 
     // HLS Broadcasting refs

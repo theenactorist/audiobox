@@ -204,6 +204,15 @@ export default function ListenerPage() {
         };
     }, [isPlaying, activeStream]);
 
+    // Set dynamic document title
+    useEffect(() => {
+        if (activeStream && isPlaying) {
+            document.title = `${activeStream.title || 'Live'} | AudioBox`;
+        } else {
+            document.title = 'AudioBox';
+        }
+    }, [activeStream, isPlaying]);
+
     // Setup HLS player
     useEffect(() => {
         if (!activeStream || !audioRef.current) {
