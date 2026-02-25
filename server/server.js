@@ -549,11 +549,12 @@ io.on('connection', (socket) => {
 
     // Update stream metadata without restarting
     socket.on('update-metadata', (data) => {
-        const { streamId, title, description } = data;
+        const { streamId, title, description, isPublic } = data;
         const broadcaster = broadcasters[streamId];
         if (broadcaster && broadcaster.socketId === socket.id) {
             broadcaster.title = title || broadcaster.title;
             broadcaster.description = description || broadcaster.description;
+            if (isPublic !== undefined) broadcaster.isPublic = isPublic;
 
             // Broadcast updated metadata to all listeners
             io.to(streamId).emit('metadata-updated', {

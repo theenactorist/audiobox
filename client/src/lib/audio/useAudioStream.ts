@@ -16,6 +16,12 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
     const gainNodeRef = useRef<GainNode | null>(null);
     const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+    const volumeRef = useRef(volume);
+    const isMutedRef = useRef(isMuted);
+
+    // Keep refs in sync with state
+    useEffect(() => { volumeRef.current = volume; }, [volume]);
+    useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
     const startStream = useCallback(async (deviceId?: string) => {
         try {
@@ -44,7 +50,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             const destination = audioContext.createMediaStreamDestination();
 
             // Set initial volume: map 0-100 to 0-20.0 gain (where 20% on the old scale becomes 100%)
-            gainNode.gain.value = isMuted ? 0 : (volume / 100) * 20.0;
+            gainNode.gain.value = isMutedRef.current ? 0 : (volumeRef.current / 100) * 20.0;
 
             // Connect: source -> gain -> destination
             source.connect(gainNode);
@@ -66,7 +72,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             setStream(null);
             streamRef.current = null;
         }
-    }, [config.sampleRate, volume, isMuted]);
+    }, [config.sampleRate]);
 
     const stopStream = useCallback(() => {
         if (streamRef.current) {

@@ -23,8 +23,10 @@ export default function ListenerPage() {
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [showInstallBanner, setShowInstallBanner] = useState(false);
+    const [expandDescription, setExpandDescription] = useState(false);
     const [lastPublicBroadcast, setLastPublicBroadcast] = useState<LastPublicBroadcast | null>(null);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    const hasListenedRef = useRef(false);
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -187,14 +189,18 @@ export default function ListenerPage() {
         if (!socket || !activeStream) return;
 
         if (isPlaying) {
+            hasListenedRef.current = true;
             socket.emit('start-listening', activeStream.streamId);
-        } else {
+        } else if (hasListenedRef.current) {
+            // Only emit stop if they were previously listening
             socket.emit('stop-listening', activeStream.streamId);
         }
 
         return () => {
             // Guarantee cleanup if component unmounts or stream changes
-            socket.emit('stop-listening', activeStream.streamId);
+            if (hasListenedRef.current) {
+                socket.emit('stop-listening', activeStream.streamId);
+            }
         };
     }, [isPlaying, activeStream]);
 
@@ -239,9 +245,9 @@ export default function ListenerPage() {
                 // audioRef.current?.play().catch(e => console.log('Autoplay prevented:', e));
             });
 
-            hls.on(Hls.Events.ERROR, (data) => {
-                if ((data as any).fatal) {
-                    switch ((data as any).type) {
+            hls.on(Hls.Events.ERROR, (_event, data) => {
+                if (data.fatal) {
+                    switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
                             console.log('Network error, trying to recover...');
                             hls.startLoad();
@@ -448,7 +454,7 @@ export default function ListenerPage() {
                                     No active broadcast
                                 </h1>
                                 <p style={{ fontSize: 15, color: COLORS.textSecondary, margin: "0 0 32px", lineHeight: 1.6 }}>
-                                    There's nothing streaming right now. Please check back later.
+                                    No one is live right now. Check back soon!
                                 </p>
 
                                 {/* Last broadcast info */}
@@ -459,7 +465,7 @@ export default function ListenerPage() {
                                         marginBottom: 28,
                                     }}>
                                         <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-                                            Last public broadcast
+                                            Previous broadcast
                                         </div>
                                         <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, lineHeight: 1.4, marginBottom: 6 }}>
                                             {lastPublicBroadcast.title}
@@ -481,7 +487,7 @@ export default function ListenerPage() {
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                                 <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
                                             </svg>
-                                            Listen again on Spotify
+                                            Catch the replay on Spotify
                                         </a>
                                     </div>
                                 )}
@@ -643,7 +649,7 @@ export default function ListenerPage() {
                     <div style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <IconAlertCircle size={20} color={COLORS.green} />
-                            <span style={{ fontSize: 14, color: COLORS.textSecondary }}>Install this app for background audio playback when your screen is off.</span>
+                            <span style={{ fontSize: 14, color: COLORS.textSecondary }}>Install AudioBox for background listening, even with your screen off.</span>
                         </div>
                         <button onClick={dismissInstallBanner} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 18 }}>&times;</button>
                     </div>
@@ -675,21 +681,21 @@ export default function ListenerPage() {
                             <div style={{ marginBottom: 28 }}>
                                 <p style={{
                                     fontSize: 14, lineHeight: 1.65, color: COLORS.textSecondary, margin: 0,
-                                    display: "-webkit-box", WebkitLineClamp: showInstallBanner ? "unset" : 2, // reusing this state for simplicity of porting
-                                    WebkitBoxOrient: "vertical", overflow: showInstallBanner ? "visible" : "hidden",
+                                    display: "-webkit-box", WebkitLineClamp: expandDescription ? "unset" : 2,
+                                    WebkitBoxOrient: "vertical", overflow: expandDescription ? "visible" : "hidden",
                                 }}>
                                     {activeStream.description || 'Welcome to the live stream.'}
                                 </p>
                                 <button
-                                    onClick={() => setShowInstallBanner(!showInstallBanner)}
+                                    onClick={() => setExpandDescription(!expandDescription)}
                                     style={{ background: "none", border: "none", color: COLORS.green, fontSize: 13, fontWeight: 500, cursor: "pointer", padding: "4px 0 0", fontFamily: "'DM Sans', sans-serif" }}
                                 >
-                                    {showInstallBanner ? "Show less" : "Read more"}
+                                    {expandDescription ? "Show less" : "Read more"}
                                 </button>
                             </div>
 
                             {isPlaying && (
-                                <div style={{ marginBottom: 24 }}>
+                                <div style={{ marginBottom: 16 }}>
                                     {/* Visualizer */}
                                     <div style={{ background: COLORS.bg, borderRadius: 12, padding: "12px 16px", border: `1px solid ${COLORS.border}` }}>
                                         <MiniVisualizer active={isPlaying} muted={muted} analyser={analyser} />
@@ -707,43 +713,43 @@ export default function ListenerPage() {
                                             </span>
                                         </div>
                                     </div>
-
-                                    {/* Volume control */}
-                                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, padding: "10px 14px", background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}` }}>
-                                        <button
-                                            onClick={() => setMuted(!muted)}
-                                            style={{
-                                                width: 32, height: 32, borderRadius: 8,
-                                                border: `1px solid ${muted ? COLORS.redBorder : COLORS.border}`,
-                                                background: muted ? COLORS.redBg : "transparent",
-                                                color: muted ? COLORS.red : COLORS.textSecondary,
-                                                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                                                flexShrink: 0, transition: "all 0.15s ease",
-                                            }}
-                                        >
-                                            {muted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
-                                        </button>
-
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="100"
-                                            value={muted ? 0 : volume}
-                                            onChange={(e) => {
-                                                const val = Number(e.target.value);
-                                                setVolume(val);
-                                                if (val > 0 && muted) setMuted(false);
-                                                if (val === 0) setMuted(true);
-                                            }}
-                                            style={{ flex: 1, background: `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` }}
-                                        />
-
-                                        <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : COLORS.textSecondary, fontWeight: 500, minWidth: 38, textAlign: "right", flexShrink: 0 }}>
-                                            {muted ? "0%" : `${volume}%`}
-                                        </span>
-                                    </div>
                                 </div>
                             )}
+
+                            {/* Volume control — always visible so users can pre-set volume */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, padding: "10px 14px", background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}` }}>
+                                <button
+                                    onClick={() => setMuted(!muted)}
+                                    style={{
+                                        width: 32, height: 32, borderRadius: 8,
+                                        border: `1px solid ${muted ? COLORS.redBorder : COLORS.border}`,
+                                        background: muted ? COLORS.redBg : "transparent",
+                                        color: muted ? COLORS.red : COLORS.textSecondary,
+                                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                        flexShrink: 0, transition: "all 0.15s ease",
+                                    }}
+                                >
+                                    {muted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
+                                </button>
+
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={muted ? 0 : volume}
+                                    onChange={(e) => {
+                                        const val = Number(e.target.value);
+                                        setVolume(val);
+                                        if (val > 0 && muted) setMuted(false);
+                                        if (val === 0) setMuted(true);
+                                    }}
+                                    style={{ flex: 1, background: `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` }}
+                                />
+
+                                <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : COLORS.textSecondary, fontWeight: 500, minWidth: 38, textAlign: "right", flexShrink: 0 }}>
+                                    {muted ? "0%" : `${volume}%`}
+                                </span>
+                            </div>
 
                             {!isPlaying ? (
                                 <button
@@ -756,7 +762,7 @@ export default function ListenerPage() {
                                     }}
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                                    Start listening
+                                    {hasListenedRef.current ? 'Rejoin live' : 'Start listening'}
                                 </button>
                             ) : (
                                 <button

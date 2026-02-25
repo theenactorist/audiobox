@@ -260,7 +260,7 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void, onCancel
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS.red} strokeWidth="2"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
                 </div>
                 <h3 style={{ color: COLORS.text, fontSize: 18, fontWeight: 600, margin: "0 0 8px", fontFamily: "'DM Sans', sans-serif" }}>End this broadcast?</h3>
-                <p style={{ color: COLORS.textSecondary, fontSize: 14, margin: "0 0 24px", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>Your stream will stop immediately and all listeners will be disconnected.</p>
+                <p style={{ color: COLORS.textSecondary, fontSize: 14, margin: "0 0 24px", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>All active listeners will be disconnected immediately.</p>
                 <div style={{ display: "flex", gap: 12 }}>
                     <button onClick={onCancel} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.textSecondary, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Keep streaming</button>
                     <button onClick={onConfirm} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: COLORS.red, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>End stream</button>
@@ -667,7 +667,7 @@ export default function StudioPage() {
             console.log('Broadcast started with HLS');
             notifications.show({
                 title: 'Live',
-                message: 'You are now broadcasting live!',
+                message: 'Your broadcast is live — listeners can tune in now.',
                 color: 'red',
                 icon: <IconMicrophone size={16} />,
             });
@@ -951,7 +951,7 @@ export default function StudioPage() {
                                 ) : isLive ? (
                                     <span style={{ fontSize: 12, color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                        Edits apply instantly
+                                        Changes auto-save
                                     </span>
                                 ) : null}
                             </div>
@@ -966,7 +966,7 @@ export default function StudioPage() {
                                             setTitle(e.target.value);
                                             if (isLive) setHasUnsavedChanges(true);
                                         }}
-                                        placeholder="My Awesome Stream"
+                                        placeholder="Episode title"
                                         style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
                                     />
                                 </div>
@@ -979,7 +979,7 @@ export default function StudioPage() {
                                             setDescription(e.target.value);
                                             if (isLive) setHasUnsavedChanges(true);
                                         }}
-                                        placeholder="Tell your listeners what this stream is about..."
+                                        placeholder="What's this episode about?"
                                         rows={3}
                                         style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }}
                                     />
