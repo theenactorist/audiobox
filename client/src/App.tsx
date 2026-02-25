@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Studio from './pages/Studio';
 import Listen from './pages/Listen';
+import Changelog from './pages/Changelog';
 
 const theme = createTheme({
   primaryColor: 'green',
@@ -36,6 +37,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/studio" element={<Studio />} />
             <Route path="/listen" element={<Listen />} />
+            <Route path="/changelog" element={<Changelog />} />
             <Route path="/register" element={<Navigate to="/login" replace />} />
             <Route path="/signup" element={<Navigate to="/login" replace />} />
           </Routes>
