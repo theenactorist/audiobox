@@ -855,8 +855,17 @@ export default function StudioPage() {
             <link href={linkFont} rel="stylesheet" />
             <style>{`
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+                html, body { overflow-x: hidden; width: 100%; }
                 .studio-root, .studio-root * { box-sizing: border-box; }
-                .studio-root { overflow-x: hidden; max-width: 100vw; }
+                .studio-root {
+                    overflow-x: hidden;
+                    width: 100%;
+                    max-width: 100%;
+                }
+                .studio-main-grid > * {
+                    min-width: 0;
+                    max-width: 100%;
+                }
                 @media (max-width: 768px) {
                     .studio-header { padding: 12px 16px !important; }
                     .studio-header .header-subtitle { display: none; }
@@ -864,8 +873,8 @@ export default function StudioPage() {
                     .studio-live-bar { padding: 10px 16px !important; }
                     .studio-main-grid {
                         grid-template-columns: 1fr !important;
-                        padding: 16px !important;
-                        gap: 16px !important;
+                        padding: 12px !important;
+                        gap: 12px !important;
                     }
                     .studio-right-col { order: -1; }
                     .studio-audio-monitor-row {
@@ -879,7 +888,7 @@ export default function StudioPage() {
                         border-radius: 12px !important;
                     }
                     .studio-card-sm {
-                        padding: 14px !important;
+                        padding: 12px !important;
                         border-radius: 12px !important;
                     }
                 }

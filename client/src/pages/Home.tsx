@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export default function Home() {
     return (
-        <Container size="lg" py="xl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', maxWidth: '1200px', margin: '0 auto' }}>
+        <Container size="lg" py="xl" px="md" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', maxWidth: '1200px', margin: '0 auto', overflowX: 'hidden' as const }}>
             {/* Logo Area */}
             <Group justify="space-between" mb={60}>
                 <Title order={3} size={24} fw={900} style={{ letterSpacing: '-0.5px' }}>AudioBox</Title>
@@ -16,7 +16,7 @@ export default function Home() {
 
             <Stack gap="xl" align="center" style={{ flex: 1, justifyContent: 'center' }}>
                 <Stack gap="md" align="center" style={{ maxWidth: 800 }}>
-                    <Title order={1} size={64} fw={800} ta="center" style={{ lineHeight: 1.1, letterSpacing: '-1px' }}>
+                    <Title order={1} fw={800} ta="center" style={{ lineHeight: 1.1, letterSpacing: '-1px', fontSize: 'clamp(32px, 8vw, 64px)' }}>
                         Deliver the next audio livestream experience for listeners
                     </Title>
                     <Text size="xl" ta="center" c="dimmed" style={{ maxWidth: 600 }}>

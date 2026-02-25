@@ -27,7 +27,7 @@ export default function LoginPage() {
     };
 
     return (
-        <Container size={420} my={40} style={{ margin: '40px auto' }}>
+        <Container size={420} my={40} px="md" style={{ margin: '40px auto' }}>
             <Group justify="space-between" mb="xl">
                 <Button component={Link} to="/" variant="subtle" leftSection={<IconArrowLeft size={16} />}>
                     Back to Home
