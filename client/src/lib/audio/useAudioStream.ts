@@ -32,7 +32,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
 
             const rawStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    deviceId: deviceId ? { exact: deviceId } : undefined,
+                    deviceId: deviceId ? { ideal: deviceId } : undefined,
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: false,
@@ -117,7 +117,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         try {
             const constraints: MediaStreamConstraints = {
                 audio: {
-                    deviceId: { exact: deviceId },
+                    deviceId: { ideal: deviceId },
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: false,

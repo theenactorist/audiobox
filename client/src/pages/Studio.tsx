@@ -958,10 +958,11 @@ export default function StudioPage() {
                         border-radius: 12px !important;
                     }
                     .studio-audio-monitor-row {
-                        flex-direction: column !important;
+                        flex-direction: row !important;
                     }
                     .studio-audio-monitor-row > div:first-child {
-                        min-height: 180px !important;
+                        min-height: 200px !important;
+                        flex: 1 !important;
                     }
                 }
             `}</style>
