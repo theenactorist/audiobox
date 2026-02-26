@@ -8,7 +8,7 @@ export interface AudioStreamConfig {
 export function useAudioStream(config: AudioStreamConfig = {}) {
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<Error | null>(null);
-    const [volume, setVolume] = useState(70); // 0-100 range, mapped to gain 0-1.0 (unity)
+    const [volume, setVolume] = useState(100); // 0-100 range, mapped to gain 0-2.0 (allows amplification)
     const [isMuted, setIsMuted] = useState(false);
 
     const streamRef = useRef<MediaStream | null>(null);
@@ -38,7 +38,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
                     deviceId: deviceId ? { ideal: deviceId } : undefined,
                     echoCancellation: false,
                     noiseSuppression: false,
-                    autoGainControl: false,
+                    autoGainControl: true,
                     channelCount: 1,
                     sampleRate: config.sampleRate || 48000,
                 },
@@ -56,8 +56,9 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             const destination = audioContext.createMediaStreamDestination();
             destination.channelCount = 1;
 
-            // Set initial volume: map 0-100 slider to 0.0-1.0 gain (unity = no amplification)
-            gainNode.gain.value = isMutedRef.current ? 0 : volumeRef.current / 100;
+            // Set initial volume: map 0-100 slider to 0.0-2.0 gain (allows up to 2x amplification)
+            // This is critical for phone mics which are often very quiet
+            gainNode.gain.value = isMutedRef.current ? 0 : (volumeRef.current / 100) * 2;
 
             // Connect: source -> gain -> destination
             source.connect(gainNode);
@@ -123,7 +124,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
     const updateVolume = useCallback((newVolume: number) => {
         setVolume(newVolume);
         if (gainNodeRef.current && !isMuted) {
-            gainNodeRef.current.gain.value = newVolume / 100;
+            gainNodeRef.current.gain.value = (newVolume / 100) * 2;
         }
     }, [isMuted]);
 
@@ -131,7 +132,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         const newMuted = !isMuted;
         setIsMuted(newMuted);
         if (gainNodeRef.current) {
-            gainNodeRef.current.gain.value = newMuted ? 0 : volume / 100;
+            gainNodeRef.current.gain.value = newMuted ? 0 : (volume / 100) * 2;
         }
     }, [isMuted, volume]);
 
@@ -143,7 +144,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
                     deviceId: { ideal: deviceId },
                     echoCancellation: false,
                     noiseSuppression: false,
-                    autoGainControl: false,
+                    autoGainControl: true,
                     channelCount: 1,
                     sampleRate: config.sampleRate || 48000,
                 },
