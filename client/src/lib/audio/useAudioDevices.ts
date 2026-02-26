@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 export function useAudioDevices() {
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+    const [permissionGranted, setPermissionGranted] = useState(false);
+    const [permissionDenied, setPermissionDenied] = useState(false);
 
     const enumerateAudioDevices = useCallback(async () => {
         try {
@@ -15,26 +17,37 @@ export function useAudioDevices() {
         }
     }, []);
 
+    /**
+     * Request microphone permission.
+     * MUST be called from a user gesture handler (click/tap) on iOS.
+     * iOS silently blocks getUserMedia calls that don't originate from user interaction.
+     */
+    const requestPermission = useCallback(async () => {
+        try {
+            const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Stop immediately — we only needed the permission prompt
+            tempStream.getTracks().forEach(track => track.stop());
+            setPermissionGranted(true);
+            setPermissionDenied(false);
+
+            // Now enumerate with labels
+            await enumerateAudioDevices();
+        } catch (err) {
+            console.warn('Microphone permission not granted:', err);
+            setPermissionDenied(true);
+            setPermissionGranted(false);
+        }
+    }, [enumerateAudioDevices]);
+
+    // On mount, try to enumerate devices (may get devices without labels if no prior permission)
+    // Also check if permission was already granted in a previous session
     useEffect(() => {
         const init = async () => {
-            // First attempt: enumerate without permission (may get empty labels)
-            let inputs = await enumerateAudioDevices();
+            const inputs = await enumerateAudioDevices();
 
-            // If we got devices but all labels are empty, we need to request permission first
-            // On iOS Chrome, getUserMedia triggers the browser permission dialog
-            const hasEmptyLabels = inputs.length > 0 && inputs.every(d => !d.label);
-            if (inputs.length === 0 || hasEmptyLabels) {
-                try {
-                    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    // Stop immediately — we only needed the permission prompt
-                    tempStream.getTracks().forEach(track => track.stop());
-
-                    // Re-enumerate now that we have permission — labels should be populated
-                    await enumerateAudioDevices();
-                } catch (err) {
-                    // Permission denied or not available
-                    console.warn('Microphone permission not granted:', err);
-                }
+            // If we got devices with labels, permission was already granted
+            if (inputs.length > 0 && inputs.some(d => d.label)) {
+                setPermissionGranted(true);
             }
         };
 
@@ -46,5 +59,5 @@ export function useAudioDevices() {
         };
     }, [enumerateAudioDevices]);
 
-    return devices;
+    return { devices, permissionGranted, permissionDenied, requestPermission };
 }

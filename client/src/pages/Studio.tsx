@@ -307,7 +307,7 @@ export default function StudioPage() {
     useEffect(() => { descriptionRef.current = description; }, [description]);
 
     // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
-    const devices = useAudioDevices();
+    const { devices, permissionGranted, permissionDenied, requestPermission } = useAudioDevices();
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute, audioContext } = useAudioStream();
     const keepAlive = useKeepAlive();
 
@@ -1111,30 +1111,55 @@ export default function StudioPage() {
                                 {!isMonitoring && (
                                     <div>
                                         <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: COLORS.textSecondary, marginBottom: 8 }}>Audio input</label>
-                                        <div style={{ position: "relative" }}>
-                                            <select
-                                                value={selectedDevice || ''}
-                                                onChange={(e) => {
-                                                    setSelectedDevice(e.target.value);
-                                                    if (e.target.value) startStream(e.target.value);
-                                                    if (validationErrors.device) setValidationErrors(prev => ({ ...prev, device: undefined }));
-                                                }}
-                                                style={{
-                                                    width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${validationErrors.device ? COLORS.red : COLORS.border}`,
-                                                    background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif",
-                                                    outline: "none", appearance: "none", boxSizing: "border-box", cursor: "pointer"
-                                                }}
-                                            >
-                                                <option value="" disabled>Select microphone</option>
-                                                {devices.map((d, i) => (
-                                                    <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
-                                                ))}
-                                            </select>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                                                <polyline points="6 9 12 15 18 9" />
-                                            </svg>
-                                        </div>
-                                        {validationErrors.device && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.device}</div>}
+                                        {!permissionGranted ? (
+                                            <>
+                                                <button
+                                                    onClick={async () => {
+                                                        await requestPermission();
+                                                    }}
+                                                    style={{
+                                                        width: "100%", padding: "14px 16px", borderRadius: 10,
+                                                        border: `1px solid ${validationErrors.device ? COLORS.red : COLORS.green}`,
+                                                        background: "rgba(52, 211, 153, 0.1)", color: COLORS.green,
+                                                        fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                                                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                                        boxSizing: "border-box"
+                                                    }}
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
+                                                    {permissionDenied ? 'Microphone blocked — tap to retry' : 'Tap to enable microphone'}
+                                                </button>
+                                                {permissionDenied && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, lineHeight: 1.4 }}>Permission was denied. Check your browser settings and allow microphone access for this site.</div>}
+                                                {validationErrors.device && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.device}</div>}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div style={{ position: "relative" }}>
+                                                    <select
+                                                        value={selectedDevice || ''}
+                                                        onChange={(e) => {
+                                                            setSelectedDevice(e.target.value);
+                                                            if (e.target.value) startStream(e.target.value);
+                                                            if (validationErrors.device) setValidationErrors(prev => ({ ...prev, device: undefined }));
+                                                        }}
+                                                        style={{
+                                                            width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${validationErrors.device ? COLORS.red : COLORS.border}`,
+                                                            background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                                                            outline: "none", appearance: "none", boxSizing: "border-box", cursor: "pointer"
+                                                        }}
+                                                    >
+                                                        <option value="" disabled>Select microphone</option>
+                                                        {devices.map((d, i) => (
+                                                            <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
+                                                        ))}
+                                                    </select>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </div>
+                                                {validationErrors.device && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.device}</div>}
+                                            </>
+                                        )}
                                     </div>
                                 )}
 
