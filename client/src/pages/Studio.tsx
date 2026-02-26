@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import io, { Socket } from 'socket.io-client';
 import { notifications } from '@mantine/notifications';
+import { useMediaQuery } from '@mantine/hooks';
 import { getServerUrl } from '@/lib/serverUrl';
 
 // Styled Constants from audiobox-dashboard.jsx
@@ -282,9 +283,12 @@ export default function StudioPage() {
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [listenerCount, setListenerCount] = useState(0);
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
-    const [isPublic, setIsPublic] = useState(true);
-    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<{ title?: string, device?: string }>({});
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [isPublic, setIsPublic] = useState(false);
+
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const [isMonitoring, setIsMonitoring] = useState(false); // Browser B: monitoring only, no audio pipeline
 
     const [isMounted, setIsMounted] = useState(false);
@@ -855,7 +859,7 @@ export default function StudioPage() {
             <link href={linkFont} rel="stylesheet" />
             <style>{`
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-                html, body { overflow-x: hidden; width: 100%; }
+                html, body, #root { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
                 .studio-root, .studio-root * { box-sizing: border-box; }
                 .studio-root {
                     overflow-x: hidden;
@@ -871,13 +875,12 @@ export default function StudioPage() {
                     .studio-header .header-subtitle { display: none; }
                     .studio-header .header-email { display: none; }
                     .studio-live-bar { padding: 10px 16px !important; }
-                    .studio-main-grid {
-                        grid-template-columns: 1fr !important;
-                        padding: 12px !important;
-                        gap: 12px !important;
-                    }
-                    .studio-main-grid > div {
-                        display: contents !important;
+                    .studio-card, .studio-card-sm {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        overflow: hidden !important;
+                        padding: 16px !important;
+                        border-radius: 12px !important;
                     }
                     .studio-audio-monitor-row {
                         flex-direction: column !important;
@@ -885,20 +888,6 @@ export default function StudioPage() {
                     .studio-audio-monitor-row > div:first-child {
                         min-height: 180px !important;
                     }
-                    .studio-card, .studio-card-sm {
-                        padding: 16px !important;
-                        border-radius: 12px !important;
-                    }
-                    /* Before go live: setup(1) monitor(2) link(3) history(4) */
-                    .card-setup { order: 1; }
-                    .card-monitor { order: 2; }
-                    .card-link { order: 3; }
-                    .card-history { order: 4; }
-                    /* After go live: link(1) monitor(2) setup(3) history(4) */
-                    .studio-main-grid[data-live="true"] .card-link { order: 1; }
-                    .studio-main-grid[data-live="true"] .card-monitor { order: 2; }
-                    .studio-main-grid[data-live="true"] .card-setup { order: 3; }
-                    .studio-main-grid[data-live="true"] .card-history { order: 4; }
                 }
             `}</style>
 
@@ -978,14 +967,10 @@ export default function StudioPage() {
                     </div>
                 )}
 
-                {/* Main grid */}
-                <div className="studio-main-grid" data-live={isLive ? "true" : "false"} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
-
-                    {/* LEFT COLUMN */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
-
-                        {/* Stream Setup */}
-                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 28 }}>
+                {/* Extract Cards into JSX variables for conditional mobile ordering */}
+                {(() => {
+                    const streamSetupCard = (
+                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 28, width: "100%", boxSizing: "border-box" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between", marginBottom: 24 }}>
                                 <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Stream setup</h2>
                                 {isLive && hasUnsavedChanges ? (
@@ -1013,10 +998,12 @@ export default function StudioPage() {
                                         onChange={(e) => {
                                             setTitle(e.target.value);
                                             if (isLive) setHasUnsavedChanges(true);
+                                            if (validationErrors.title) setValidationErrors(prev => ({ ...prev, title: undefined }));
                                         }}
                                         placeholder="Episode title"
-                                        style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
+                                        style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${validationErrors.title ? COLORS.red : COLORS.border}`, background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
                                     />
+                                    {validationErrors.title && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.title}</div>}
                                 </div>
 
                                 <div>
@@ -1054,9 +1041,10 @@ export default function StudioPage() {
                                                 onChange={(e) => {
                                                     setSelectedDevice(e.target.value);
                                                     if (e.target.value) startStream(e.target.value);
+                                                    if (validationErrors.device) setValidationErrors(prev => ({ ...prev, device: undefined }));
                                                 }}
                                                 style={{
-                                                    width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`,
+                                                    width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${validationErrors.device ? COLORS.red : COLORS.border}`,
                                                     background: COLORS.bg, color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif",
                                                     outline: "none", appearance: "none", boxSizing: "border-box", cursor: "pointer"
                                                 }}
@@ -1070,6 +1058,7 @@ export default function StudioPage() {
                                                 <polyline points="6 9 12 15 18 9" />
                                             </svg>
                                         </div>
+                                        {validationErrors.device && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.device}</div>}
                                     </div>
                                 )}
 
@@ -1100,13 +1089,28 @@ export default function StudioPage() {
                             {!isLive ? (
                                 !isMonitoring && (
                                     <button
-                                        onClick={handleStartBroadcast}
-                                        disabled={!stream || !title.trim()}
+                                        onClick={() => {
+                                            const errors: { title?: string, device?: string } = {};
+                                            if (!title.trim()) {
+                                                errors.title = "Please enter a stream title";
+                                            }
+                                            if (!stream || !selectedDevice) {
+                                                errors.device = "Please select a microphone";
+                                            }
+
+                                            if (Object.keys(errors).length > 0) {
+                                                setValidationErrors(errors);
+                                                return;
+                                            }
+
+                                            setValidationErrors({});
+                                            handleStartBroadcast();
+                                        }}
                                         style={{
                                             width: "100%", marginTop: 28, padding: "16px", borderRadius: 12, border: "none",
-                                            background: stream && title.trim() ? `linear-gradient(135deg, ${COLORS.green}, #2bb37e)` : COLORS.border,
-                                            color: stream && title.trim() ? "#0a1a12" : COLORS.textMuted,
-                                            fontSize: 15, fontWeight: 700, cursor: stream && title.trim() ? "pointer" : "not-allowed",
+                                            background: `linear-gradient(135deg, ${COLORS.green}, #2bb37e)`,
+                                            color: "#0a1a12",
+                                            fontSize: 15, fontWeight: 700, cursor: "pointer",
                                             fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
                                             transition: "all 0.2s ease"
                                         }}
@@ -1132,9 +1136,10 @@ export default function StudioPage() {
                                 </button>
                             )}
                         </div>
+                    );
 
-                        {/* Past Broadcasts */}
-                        <div className="studio-card card-history" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24 }}>
+                    const pastBroadcastsCard = (
+                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24, width: "100%", boxSizing: "border-box" }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 20px" }}>Past broadcasts</h2>
 
                             {historyData.length > 0 ? (
@@ -1170,13 +1175,10 @@ export default function StudioPage() {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    );
 
-                    {/* RIGHT COLUMN */}
-                    <div className="studio-right-col" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-                        {/* Listener Link */}
-                        <div className="studio-card-sm card-link" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
+                    const listenerLinkCard = (
+                        <div className="studio-card-sm" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20, width: "100%", boxSizing: "border-box" }}>
                             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Listener link</label>
@@ -1193,9 +1195,10 @@ export default function StudioPage() {
                                 </button>
                             </div>
                         </div>
+                    );
 
-                        {/* Audio Monitor */}
-                        <div className="studio-card card-monitor" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
+                    const audioMonitorCard = (
+                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24, width: "100%", boxSizing: "border-box" }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Audio monitor</h2>
                             {!stream && !isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Select an audio input to test your levels before going live.</p>}
                             {isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio monitoring is disabled while in passive monitoring mode.</p>}
@@ -1203,7 +1206,7 @@ export default function StudioPage() {
                             {!isMonitoring && (
                                 <div className="studio-audio-monitor-row" style={{ display: "flex", gap: 16, alignItems: "stretch" }}>
                                     {/* Waveform */}
-                                    <div style={{ flex: 1, background: COLORS.bg, borderRadius: 12, padding: "8px 12px", border: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: 280 }}>
+                                    <div style={{ flex: 1, background: COLORS.bg, borderRadius: 12, padding: "8px 12px", border: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", justifyContent: "flex-end", minHeight: 280, minWidth: 0, width: "100%", overflow: "hidden" }}>
                                         <StudioVisualizer active={!!stream} analyser={analyser} />
                                     </div>
 
@@ -1215,9 +1218,46 @@ export default function StudioPage() {
                                 </div>
                             )}
                         </div>
+                    );
 
-                    </div>
-                </div>
+                    return (
+                        <>
+                            {/* Main Content Area */}
+                            {isMobile ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 12 }}>
+                                    {/* Mobile Ordering Logic */}
+                                    {!isLive ? (
+                                        <>
+                                            {streamSetupCard}
+                                            {audioMonitorCard}
+                                            {listenerLinkCard}
+                                            {pastBroadcastsCard}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {listenerLinkCard}
+                                            {audioMonitorCard}
+                                            {streamSetupCard}
+                                            {pastBroadcastsCard}
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
+                                    {/* Desktop Layout - Normal 2 Columns */}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
+                                        {streamSetupCard}
+                                        {pastBroadcastsCard}
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                                        {listenerLinkCard}
+                                        {audioMonitorCard}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    );
+                })()}
             </div>
         </>
     );
