@@ -30,13 +30,16 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
                 streamRef.current.getTracks().forEach(track => track.stop());
             }
 
+            // Request MONO audio — most phone mics are mono.
+            // Requesting stereo (channelCount: 2) on a mono mic creates a stereo stream
+            // with audio only in the left channel, causing left-speaker-only playback.
             const rawStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: deviceId ? { ideal: deviceId } : undefined,
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: false,
-                    channelCount: 2,
+                    channelCount: 1,
                     sampleRate: config.sampleRate || 48000,
                 },
                 video: false,
@@ -47,7 +50,11 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             const audioContext = new AudioContext();
             const source = audioContext.createMediaStreamSource(rawStream);
             const gainNode = audioContext.createGain();
+
+            // Create a mono-friendly destination
+            // channelCount: 1 ensures the output is mono, which players will route to both speakers
             const destination = audioContext.createMediaStreamDestination();
+            destination.channelCount = 1;
 
             // Set initial volume: map 0-100 slider to 0.0-1.0 gain (unity = no amplification)
             gainNode.gain.value = isMutedRef.current ? 0 : volumeRef.current / 100;
@@ -121,7 +128,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: false,
-                    channelCount: 2,
+                    channelCount: 1,
                     sampleRate: config.sampleRate || 48000,
                 },
                 video: false,

@@ -393,6 +393,49 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Allow a monitoring device to take over the broadcast
+    socket.on('takeover-broadcast', (data) => {
+        const { streamId, userId } = data;
+
+        if (!broadcasters[streamId]) {
+            socket.emit('takeover-failed', { reason: 'No active stream to take over' });
+            return;
+        }
+
+        const oldSocketId = broadcasters[streamId].socketId;
+
+        // Don't takeover from yourself
+        if (oldSocketId === socket.id) {
+            socket.emit('takeover-failed', { reason: 'You are already broadcasting' });
+            return;
+        }
+
+        console.log(`Broadcast takeover: ${streamId} from socket ${oldSocketId} to ${socket.id} (User: ${userId})`);
+
+        // Notify the old broadcaster that they've been taken over
+        io.to(oldSocketId).emit('broadcast-taken-over', {
+            streamId,
+            takenOverBy: userId || 'another device'
+        });
+
+        // Transfer broadcaster socket ID to the new device
+        broadcasters[streamId].socketId = socket.id;
+        socket.join(streamId);
+
+        // Clear pending chunks so new device can start with fresh EBML header
+        pendingChunks[streamId] = [];
+
+        // Notify the new broadcaster that takeover was successful
+        socket.emit('takeover-success', {
+            streamId,
+            title: broadcasters[streamId].title,
+            description: broadcasters[streamId].description,
+            startTime: broadcasters[streamId].startTime
+        });
+
+        console.log(`Takeover complete for ${streamId}`);
+    });
+
     // Handle audio chunks from broadcaster
     socket.on('audio-chunk', (data) => {
         const { streamId, chunk } = data;
