@@ -70,6 +70,22 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             destinationRef.current = destination;
             streamRef.current = rawStream;
 
+            // iOS audio interruption recovery:
+            // When another app takes over audio (YouTube, phone call), iOS suspends
+            // the AudioContext. When the interruption ends, we auto-resume.
+            audioContext.onstatechange = () => {
+                console.log(`[AudioContext] State changed to: ${audioContext.state}`);
+                if (audioContext.state === 'suspended' || audioContext.state === 'interrupted' as any) {
+                    console.log('[AudioContext] Suspended/interrupted — will auto-resume when possible');
+                    // Attempt immediate resume (works if interruption already ended)
+                    audioContext.resume().then(() => {
+                        console.log('[AudioContext] Auto-resumed successfully');
+                    }).catch(e => {
+                        console.warn('[AudioContext] Auto-resume failed, will retry on user interaction:', e);
+                    });
+                }
+            };
+
             // Use the processed stream
             setStream(destination.stream);
             setError(null);

@@ -560,9 +560,19 @@ export default function StudioPage() {
             setStartTime(new Date(data.startTime));
             notifications.show({
                 title: 'Broadcasting',
-                message: 'You are now the active broadcaster.',
+                message: 'You are now the active broadcaster. Select a microphone to start sending audio.',
                 color: 'green',
                 icon: <IconMicrophone size={16} />,
+                autoClose: 5000,
+            });
+        });
+
+        socket.on('takeover-failed', (data: { reason: string }) => {
+            console.warn('Broadcast takeover failed:', data.reason);
+            notifications.show({
+                title: 'Takeover Failed',
+                message: data.reason,
+                color: 'red',
             });
         });
 
@@ -1136,10 +1146,17 @@ export default function StudioPage() {
                                         </div>
                                         <button
                                             onClick={() => {
-                                                if (socketRef.current) {
+                                                if (socketRef.current && socketRef.current.connected) {
+                                                    console.log('[Takeover] Emitting takeover-broadcast for streamId:', streamIdRef.current);
                                                     socketRef.current.emit('takeover-broadcast', {
                                                         streamId: streamIdRef.current,
                                                         userId: user?.id
+                                                    });
+                                                } else {
+                                                    notifications.show({
+                                                        title: 'Not Connected',
+                                                        message: 'Cannot take over: not connected to the server. Please refresh.',
+                                                        color: 'red',
                                                     });
                                                 }
                                             }}
