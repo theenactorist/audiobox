@@ -876,21 +876,29 @@ export default function StudioPage() {
                         padding: 12px !important;
                         gap: 12px !important;
                     }
-                    .studio-right-col { order: 1; }
+                    .studio-main-grid > div {
+                        display: contents !important;
+                    }
                     .studio-audio-monitor-row {
                         flex-direction: column !important;
                     }
                     .studio-audio-monitor-row > div:first-child {
                         min-height: 180px !important;
                     }
-                    .studio-card {
+                    .studio-card, .studio-card-sm {
                         padding: 16px !important;
                         border-radius: 12px !important;
                     }
-                    .studio-card-sm {
-                        padding: 12px !important;
-                        border-radius: 12px !important;
-                    }
+                    /* Before go live: setup(1) monitor(2) link(3) history(4) */
+                    .card-setup { order: 1; }
+                    .card-monitor { order: 2; }
+                    .card-link { order: 3; }
+                    .card-history { order: 4; }
+                    /* After go live: link(1) monitor(2) setup(3) history(4) */
+                    .studio-main-grid[data-live="true"] .card-link { order: 1; }
+                    .studio-main-grid[data-live="true"] .card-monitor { order: 2; }
+                    .studio-main-grid[data-live="true"] .card-setup { order: 3; }
+                    .studio-main-grid[data-live="true"] .card-history { order: 4; }
                 }
             `}</style>
 
@@ -971,7 +979,7 @@ export default function StudioPage() {
                 )}
 
                 {/* Main grid */}
-                <div className="studio-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
+                <div className="studio-main-grid" data-live={isLive ? "true" : "false"} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
 
                     {/* LEFT COLUMN */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
@@ -1126,7 +1134,7 @@ export default function StudioPage() {
                         </div>
 
                         {/* Past Broadcasts */}
-                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24 }}>
+                        <div className="studio-card card-history" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 24 }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 20px" }}>Past broadcasts</h2>
 
                             {historyData.length > 0 ? (
@@ -1168,7 +1176,7 @@ export default function StudioPage() {
                     <div className="studio-right-col" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
                         {/* Listener Link */}
-                        <div className="studio-card-sm" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
+                        <div className="studio-card-sm card-link" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: 20 }}>
                             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Listener link</label>
@@ -1187,7 +1195,7 @@ export default function StudioPage() {
                         </div>
 
                         {/* Audio Monitor */}
-                        <div className="studio-card" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
+                        <div className="studio-card card-monitor" style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${isLive ? COLORS.borderLight : COLORS.border}`, padding: 24 }}>
                             <h2 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Audio monitor</h2>
                             {!stream && !isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Select an audio input to test your levels before going live.</p>}
                             {isMonitoring && <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 12px", lineHeight: 1.5 }}>Audio monitoring is disabled while in passive monitoring mode.</p>}
