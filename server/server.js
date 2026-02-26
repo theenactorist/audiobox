@@ -634,9 +634,10 @@ io.on('connection', (socket) => {
         // Handle broadcaster disconnect with GRACE PERIOD
         for (const [streamId, broadcaster] of Object.entries(broadcasters)) {
             if (broadcaster.socketId === socket.id) {
-                console.log(`Broadcaster disconnected for ${streamId}. Starting 30s grace period...`);
+                console.log(`Broadcaster disconnected for ${streamId}. Starting 5-minute grace period...`);
 
                 // Set a timeout to clean up if they don't reconnect
+                // Increased to 5 minutes to handle iOS backgrounding where sockets drop
                 disconnectTimeouts[streamId] = setTimeout(() => {
                     console.log(`Grace period expired for ${streamId}. Cleaning up...`);
 
@@ -670,7 +671,7 @@ io.on('connection', (socket) => {
                     delete disconnectTimeouts[streamId];
                     io.to(streamId).emit('stream-ended');
                     console.log(`Stream ended after timeout: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
-                }, 30000); // 30 seconds
+                }, 300000); // 300 seconds (5 minutes)
                 break;
             }
         }
