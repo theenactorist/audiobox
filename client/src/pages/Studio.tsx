@@ -1125,8 +1125,8 @@ export default function StudioPage() {
                                                 }}
                                             >
                                                 <option value="" disabled>Select microphone</option>
-                                                {devices.map(d => (
-                                                    <option key={d.deviceId} value={d.deviceId}>{d.label || 'Unknown device'}</option>
+                                                {devices.map((d, i) => (
+                                                    <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
                                                 ))}
                                             </select>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
