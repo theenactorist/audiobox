@@ -306,6 +306,14 @@ export default function StudioPage() {
     useEffect(() => { titleRef.current = title; }, [title]);
     useEffect(() => { descriptionRef.current = description; }, [description]);
 
+    // Ref for monitoring state (needed in socket reconnect handler)
+    const isMonitoringRef = useRef(isMonitoring);
+    useEffect(() => { isMonitoringRef.current = isMonitoring; }, [isMonitoring]);
+
+    // Ref for selected device (needed in visibility recovery handler)
+    const selectedDeviceRef = useRef(selectedDevice);
+    useEffect(() => { selectedDeviceRef.current = selectedDevice; }, [selectedDevice]);
+
     // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
     const { devices, permissionGranted, permissionDenied, requestPermission } = useAudioDevices();
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute, audioContext } = useAudioStream();
@@ -479,10 +487,12 @@ export default function StudioPage() {
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);
 
-            // If we are live, re-announce the stream. Do NOT restart the recorder yet.
-            // Wait for the server to tell us if FFmpeg is still alive ('continue-stream') 
-            // or if it crashed and needs a fresh header ('restart-stream').
-            if (isLiveRef.current) {
+            // If we are live AND actively broadcasting (not monitoring),
+            // re-announce the stream to the server.
+            // CRITICAL: Do NOT re-announce if in monitoring mode!
+            // Otherwise the monitoring device steals the broadcaster role,
+            // and the "Take over" button will fail with "already broadcasting".
+            if (isLiveRef.current && !isMonitoringRef.current) {
                 console.log('Socket reconnected while live. Re-announcing stream to server...');
 
                 if (socketRef.current) {
@@ -493,6 +503,11 @@ export default function StudioPage() {
                         isPublic: isPublic,
                         userId: user?.id
                     });
+                }
+            } else if (isLiveRef.current && isMonitoringRef.current) {
+                console.log('Socket reconnected in monitoring mode. Rejoining stream room only...');
+                if (socketRef.current) {
+                    socketRef.current.emit('join-stream', { streamId: streamIdRef.current });
                 }
             }
         });
@@ -740,7 +755,7 @@ export default function StudioPage() {
                 // Tab returned to foreground — attempt recovery
                 console.log('[KeepAlive] Tab visible — running recovery checks');
 
-                if (!isLiveRef.current) return; // Only recover if we were broadcasting
+                if (!isLiveRef.current || isMonitoringRef.current) return; // Only recover if actively broadcasting
 
                 let recovered = false;
 
@@ -755,40 +770,66 @@ export default function StudioPage() {
                     }
                 }
 
-                // 2. Reconnect socket if disconnected
+                // 2. Check if the stream is still alive (iOS kills tracks when backgrounded)
+                let activeStream = stream;
+                if (stream) {
+                    const tracks = stream.getAudioTracks();
+                    const allDead = tracks.length === 0 || tracks.every(t => t.readyState === 'ended');
+                    if (allDead) {
+                        console.warn('[KeepAlive] Stream tracks are DEAD. Restarting audio pipeline...');
+                        // Restart the audio stream from the selected device
+                        if (selectedDeviceRef.current) {
+                            try {
+                                await startStream(selectedDeviceRef.current);
+                                console.log('[KeepAlive] Audio stream restarted successfully');
+                                recovered = true;
+                                // The new stream will be picked up by the auto-resume recorder effect
+                                // so we don't need to restart the MediaRecorder here
+                                activeStream = null; // Let the auto-resume effect handle recorder
+                            } catch (e) {
+                                console.error('[KeepAlive] Failed to restart audio stream:', e);
+                            }
+                        }
+                    }
+                }
+
+                // 3. Reconnect socket if disconnected
                 if (socketRef.current?.connected === false) {
                     console.log('[KeepAlive] Socket disconnected, reconnecting...');
                     socketRef.current.connect();
                     recovered = true;
                 }
 
-                // 3. Restart MediaRecorder if it stopped
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive' && stream) {
-                    console.log('[KeepAlive] MediaRecorder inactive, restarting...');
-                    try {
-                        const newRecorder = new MediaRecorder(stream, {
-                            mimeType: 'audio/webm;codecs=opus',
-                        });
-                        newRecorder.ondataavailable = (event) => {
-                            if (event.data.size > 0 && socketRef.current) {
-                                event.data.arrayBuffer().then((buffer) => {
-                                    socketRef.current!.emit('audio-chunk', {
-                                        streamId: streamIdRef.current,
-                                        chunk: buffer
+                // 4. Restart MediaRecorder if it stopped (only if stream is still alive)
+                if (activeStream) {
+                    const recorderDead = !mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive';
+                    if (recorderDead) {
+                        console.log('[KeepAlive] MediaRecorder inactive, restarting...');
+                        try {
+                            const newRecorder = new MediaRecorder(activeStream, {
+                                mimeType: 'audio/webm;codecs=opus',
+                            });
+                            newRecorder.ondataavailable = (event) => {
+                                if (event.data.size > 0 && socketRef.current) {
+                                    event.data.arrayBuffer().then((buffer) => {
+                                        socketRef.current!.emit('audio-chunk', {
+                                            streamId: streamIdRef.current,
+                                            chunk: buffer
+                                        });
                                     });
-                                });
-                            }
-                        };
-                        newRecorder.start(4000);
-                        mediaRecorderRef.current = newRecorder;
-                        recovered = true;
-                        console.log('[KeepAlive] MediaRecorder restarted successfully');
-                    } catch (e) {
-                        console.error('[KeepAlive] Failed to restart MediaRecorder:', e);
+                                }
+                            };
+                            newRecorder.start(4000);
+                            mediaRecorderRef.current = newRecorder;
+                            recovered = true;
+                            console.log('[KeepAlive] MediaRecorder restarted successfully');
+                        } catch (e) {
+                            console.error('[KeepAlive] Failed to restart MediaRecorder:', e);
+                        }
                     }
                 }
 
-                // 4. Re-request wake lock (iOS releases it when page loses visibility)
+                // 5. Re-request wake lock (iOS releases it when page loses visibility)
                 if ('wakeLock' in navigator && !wakeLockRef.current) {
                     try {
                         wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
@@ -812,7 +853,7 @@ export default function StudioPage() {
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [audioContext, stream]);
+    }, [audioContext, stream, startStream]);
 
     const handleStopStream = async () => {
         if (mediaRecorderRef.current) {

@@ -7,7 +7,7 @@ export interface AudioStreamConfig {
 
 // Detect mobile devices — they need higher gain because phone mics are quieter
 const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const GAIN_MULTIPLIER = IS_MOBILE ? 2.0 : 1.0;  // Mobile: 2× boost, Desktop: 1× (unity)
+const GAIN_MULTIPLIER = IS_MOBILE ? 3.0 : 1.0;  // Mobile: 3× boost, Desktop: 1× (unity)
 const DEFAULT_VOLUME = IS_MOBILE ? 100 : 70;
 
 export function useAudioStream(config: AudioStreamConfig = {}) {
