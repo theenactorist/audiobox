@@ -876,7 +876,7 @@ export default function StudioPage() {
                         padding: 12px !important;
                         gap: 12px !important;
                     }
-                    .studio-right-col { order: -1; }
+                    .studio-right-col { order: 1; }
                     .studio-audio-monitor-row {
                         flex-direction: column !important;
                     }
