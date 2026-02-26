@@ -178,5 +178,5 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         };
     }, []);
 
-    return { stream, error, startStream, stopStream, volume, isMuted, updateVolume, toggleMute, getAudioTrack };
+    return { stream, error, startStream, stopStream, volume, isMuted, updateVolume, toggleMute, getAudioTrack, audioContext: audioContextRef.current };
 }

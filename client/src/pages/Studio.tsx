@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconCheck, IconMicrophone, IconUsers, IconWifi, IconWifiOff } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
+import { useKeepAlive } from '@/lib/audio/useKeepAlive';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import io, { Socket } from 'socket.io-client';
@@ -307,7 +308,8 @@ export default function StudioPage() {
 
     // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
     const devices = useAudioDevices();
-    const { stream, startStream, volume, isMuted, updateVolume, toggleMute } = useAudioStream();
+    const { stream, startStream, volume, isMuted, updateVolume, toggleMute, audioContext } = useAudioStream();
+    const keepAlive = useKeepAlive();
 
     // Prevent hydration mismatch by only rendering after mount
     useEffect(() => {
@@ -666,6 +668,10 @@ export default function StudioPage() {
             mediaRecorder.start(4000); // 4-second chunks align perfectly with FFmpeg's 4-second HLS segments
             mediaRecorderRef.current = mediaRecorder;
 
+            // Activate iOS background keep-alive (Layers 1 & 2)
+            // Must be called here inside the click handler for iOS autoplay policy
+            keepAlive.activate(stream);
+
             setIsLive(true);
             setStartTime(new Date());
             setHasUnsavedChanges(false);
@@ -686,22 +692,88 @@ export default function StudioPage() {
         }
     };
 
-    // Keep stream alive when tab is backgrounded
+    // Layer 4: Enhanced visibility change handler for iOS background recovery
     useEffect(() => {
-        const handleVisibilityChange = () => {
+        const handleVisibilityChange = async () => {
             if (document.hidden) {
-                console.log('Tab hidden - keeping stream alive');
-                // Ensure socket is still connected
+                console.log('[KeepAlive] Tab hidden — keep-alive layers active');
+            } else {
+                // Tab returned to foreground — attempt recovery
+                console.log('[KeepAlive] Tab visible — running recovery checks');
+
+                if (!isLiveRef.current) return; // Only recover if we were broadcasting
+
+                let recovered = false;
+
+                // 1. Resume AudioContext if suspended (iOS suspends it in background)
+                if (audioContext && audioContext.state === 'suspended') {
+                    try {
+                        await audioContext.resume();
+                        console.log('[KeepAlive] AudioContext resumed from suspended state');
+                        recovered = true;
+                    } catch (e) {
+                        console.error('[KeepAlive] Failed to resume AudioContext:', e);
+                    }
+                }
+
+                // 2. Reconnect socket if disconnected
                 if (socketRef.current?.connected === false) {
-                    console.log('Socket disconnected, attempting reconnect...');
+                    console.log('[KeepAlive] Socket disconnected, reconnecting...');
                     socketRef.current.connect();
+                    recovered = true;
+                }
+
+                // 3. Restart MediaRecorder if it stopped
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive' && stream) {
+                    console.log('[KeepAlive] MediaRecorder inactive, restarting...');
+                    try {
+                        const newRecorder = new MediaRecorder(stream, {
+                            mimeType: 'audio/webm;codecs=opus',
+                        });
+                        newRecorder.ondataavailable = (event) => {
+                            if (event.data.size > 0 && socketRef.current) {
+                                event.data.arrayBuffer().then((buffer) => {
+                                    socketRef.current!.emit('audio-chunk', {
+                                        streamId: streamIdRef.current,
+                                        chunk: buffer
+                                    });
+                                });
+                            }
+                        };
+                        newRecorder.start(4000);
+                        mediaRecorderRef.current = newRecorder;
+                        recovered = true;
+                        console.log('[KeepAlive] MediaRecorder restarted successfully');
+                    } catch (e) {
+                        console.error('[KeepAlive] Failed to restart MediaRecorder:', e);
+                    }
+                }
+
+                // 4. Re-request wake lock (iOS releases it when page loses visibility)
+                if ('wakeLock' in navigator && !wakeLockRef.current) {
+                    try {
+                        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+                        console.log('[KeepAlive] Wake lock re-acquired');
+                    } catch (e) {
+                        console.warn('[KeepAlive] Could not re-acquire wake lock:', e);
+                    }
+                }
+
+                // Show recovery notification if anything was restored
+                if (recovered) {
+                    notifications.show({
+                        title: 'Stream Recovered',
+                        message: 'Your broadcast has been restored after tab switch.',
+                        color: 'blue',
+                        autoClose: 3000,
+                    });
                 }
             }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
+    }, [audioContext, stream]);
 
     const handleStopStream = async () => {
         if (mediaRecorderRef.current) {
@@ -712,6 +784,9 @@ export default function StudioPage() {
         if (socketRef.current) {
             socketRef.current.emit('end-stream', { streamId, userId: user?.id });
         }
+
+        // Deactivate iOS background keep-alive
+        keepAlive.deactivate();
 
         // Clear localStorage
         localStorage.removeItem('streamState');
