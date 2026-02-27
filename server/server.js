@@ -500,6 +500,8 @@ io.on('connection', (socket) => {
 
             if (isNewListener) {
                 io.to(broadcaster.socketId).emit('watcher', socket.id);
+                // Broadcast updated count to ALL sockets in the room (listeners + broadcaster)
+                io.to(streamId).emit('listener-count', { count: broadcaster.currentListeners });
                 console.log(`Listener ${socket.id} started listening to stream ${streamId}. Current: ${broadcaster.currentListeners}`);
             }
         }
@@ -514,6 +516,7 @@ io.on('connection', (socket) => {
 
             broadcaster.currentListeners = streamListeners[streamId] ? streamListeners[streamId].size : 0;
             io.to(broadcaster.socketId).emit('listener-left', socket.id);
+            io.to(streamId).emit('listener-count', { count: broadcaster.currentListeners });
             console.log(`Listener ${socket.id} stopped listening to stream ${streamId}. Current: ${broadcaster.currentListeners}`);
         }
     });
@@ -529,6 +532,7 @@ io.on('connection', (socket) => {
 
             broadcaster.currentListeners = streamListeners[streamId] ? streamListeners[streamId].size : 0;
             io.to(broadcaster.socketId).emit('listener-left', socket.id);
+            io.to(streamId).emit('listener-count', { count: broadcaster.currentListeners });
         }
     });
 

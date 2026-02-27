@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { CopyButton } from '@mantine/core';
-import { IconAlertCircle, IconCheck, IconCopy, IconShare, IconVolume, IconVolumeOff } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconCopy, IconHeadphones, IconShare, IconVolume, IconVolumeOff } from '@tabler/icons-react';
 
 import Hls from 'hls.js';
 import io, { Socket } from 'socket.io-client';
@@ -23,6 +23,7 @@ export default function ListenerPage() {
     const [muted, setMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [showInstallBanner, setShowInstallBanner] = useState(false);
+    const [listenerCount, setListenerCount] = useState(0);
     const [expandDescription, setExpandDescription] = useState(false);
     const [lastPublicBroadcast, setLastPublicBroadcast] = useState<LastPublicBroadcast | null>(null);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -64,6 +65,10 @@ export default function ListenerPage() {
         socket.on('metadata-updated', (data: any) => {
             console.log('Metadata updated:', data);
             setActiveStream((prev: any) => prev ? { ...prev, ...data } : null);
+        });
+
+        socket.on('listener-count', (data: { count: number }) => {
+            setListenerCount(data.count);
         });
 
         const checkActiveStreams = async () => {
@@ -232,11 +237,12 @@ export default function ListenerPage() {
             const hls = new Hls({
                 debug: false,
                 enableWorker: true,
-                lowLatencyMode: false, // Turn off strict low latency to prevent stalling
+                lowLatencyMode: false,
                 backBufferLength: 90,
-                maxBufferLength: 60, // Increase buffer tolerance
-                liveSyncDurationCount: 4, // Wait for at least 4 segments (16s) to sync, prevents starvation
-                liveMaxLatencyDurationCount: 15,
+                maxBufferLength: 60,
+                liveSyncDurationCount: 3, // Reduced from 4 to lower latency and prevent segment-boundary pauses
+                liveMaxLatencyDurationCount: 10,
+                liveDurationInfinity: true, // Prevents HLS.js from trimming the live edge too aggressively
                 manifestLoadingTimeOut: 10000,
                 manifestLoadingMaxRetry: 10,
                 levelLoadingTimeOut: 10000,
@@ -677,6 +683,17 @@ export default function ListenerPage() {
                                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.red, animation: "pulse 1.5s ease-in-out infinite" }} />
                                 <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.red, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live now</span>
                             </div>
+                            {listenerCount > 0 && (
+                                <div style={{
+                                    display: "flex", alignItems: "center", gap: 6, padding: "5px 14px",
+                                    background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 20,
+                                }}>
+                                    <IconHeadphones size={14} color={COLORS.textSecondary} />
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textSecondary }}>
+                                        {listenerCount} {listenerCount === 1 ? 'listener' : 'listeners'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Stream card */}
