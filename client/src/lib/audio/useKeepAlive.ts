@@ -1,14 +1,19 @@
 import { useRef, useCallback } from 'react';
 
 /**
- * useKeepAlive — iOS Background Audio Keep-Alive
+ * useKeepAlive — Mobile Background Audio Keep-Alive (iOS + Android)
  * 
  * Plays a near-silent audio loop via a hidden <audio> element when activated.
- * This signals to iOS that the tab is an active media player, making the OS
+ * This signals to mobile OSes that the tab is an active media player, making them
  * less aggressive about suspending JavaScript execution when the tab is backgrounded.
  * 
- * Also attaches a MediaStream to a second hidden <audio> element (MediaStreamDestination trick)
- * which makes Safari treat the page as a live audio stream player.
+ * Also registers a Media Session API handler so Chrome Android shows the
+ * broadcast in the notification shade and treats the tab as a foreground media task.
+ * 
+ * Layers:
+ *   1. Silent audio loop — keeps JS alive on iOS Safari and Android Chrome
+ *   2. MediaStream attachment — makes Safari treat page as live audio player
+ *   3. Media Session API — registers with Android's media notification system
  */
 
 // Tiny silent WAV file encoded as base64 (44 bytes header + minimal silence)
@@ -20,8 +25,9 @@ export function useKeepAlive() {
     const streamAudioRef = useRef<HTMLAudioElement | null>(null);
 
     /**
-     * Start the silent audio loop (Layer 1) and optionally attach a live stream (Layer 2).
-     * MUST be called from a user gesture handler (click) to satisfy iOS autoplay policy.
+     * Start the silent audio loop (Layer 1), attach live stream (Layer 2),
+     * and register Media Session (Layer 3).
+     * MUST be called from a user gesture handler (click) to satisfy autoplay policy.
      */
     const activate = useCallback((liveStream?: MediaStream) => {
         // Layer 1: Silent audio keep-alive
@@ -56,10 +62,44 @@ export function useKeepAlive() {
             streamAudioRef.current = streamEl;
             console.log('[KeepAlive] MediaStream attached to hidden audio element');
         }
+
+        // Layer 3: Media Session API — Android Chrome notification integration
+        // This registers the page as an active media player in the OS, which:
+        //   - Shows a persistent "Now Playing" notification on Android
+        //   - Prevents Chrome from aggressively throttling the tab
+        //   - Gives the OS a strong signal that audio recording is intentional
+        if ('mediaSession' in navigator) {
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: 'AudioBox — Broadcasting Live',
+                    artist: 'AudioBox Studio',
+                    album: 'Live Broadcast',
+                });
+
+                // Set playback state to "playing" so Android keeps the tab alive
+                navigator.mediaSession.playbackState = 'playing';
+
+                // Handle media button events (e.g. headphone pause button)
+                navigator.mediaSession.setActionHandler('pause', () => {
+                    console.log('[KeepAlive] Media session pause requested — ignoring to keep broadcast alive');
+                    // Don't actually pause — we want to keep broadcasting
+                    // Re-assert playing state
+                    navigator.mediaSession.playbackState = 'playing';
+                });
+                navigator.mediaSession.setActionHandler('play', () => {
+                    console.log('[KeepAlive] Media session play requested');
+                    navigator.mediaSession.playbackState = 'playing';
+                });
+
+                console.log('[KeepAlive] Media Session API registered (Android notification active)');
+            } catch (err) {
+                console.warn('[KeepAlive] Media Session API failed:', err);
+            }
+        }
     }, []);
 
     /**
-     * Stop all keep-alive audio elements.
+     * Stop all keep-alive audio elements and clear Media Session.
      */
     const deactivate = useCallback(() => {
         if (silentAudioRef.current) {
@@ -74,6 +114,19 @@ export function useKeepAlive() {
             streamAudioRef.current.srcObject = null;
             streamAudioRef.current = null;
             console.log('[KeepAlive] Stream audio element removed');
+        }
+
+        // Clear Media Session
+        if ('mediaSession' in navigator) {
+            try {
+                navigator.mediaSession.playbackState = 'none';
+                navigator.mediaSession.metadata = null;
+                navigator.mediaSession.setActionHandler('pause', null);
+                navigator.mediaSession.setActionHandler('play', null);
+                console.log('[KeepAlive] Media Session cleared');
+            } catch (err) {
+                // Some browsers don't support clearing handlers
+            }
         }
     }, []);
 

@@ -1,7 +1,7 @@
 
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { IconCheck, IconMicrophone, IconUsers, IconWifi, IconWifiOff } from '@tabler/icons-react';
+import { IconCheck, IconMicrophone, IconWifi, IconWifiOff } from '@tabler/icons-react';
 import { useAudioStream } from '@/lib/audio/useAudioStream';
 import { useAudioDevices } from '@/lib/audio/useAudioDevices';
 import { useKeepAlive } from '@/lib/audio/useKeepAlive';
@@ -517,31 +517,9 @@ export default function StudioPage() {
             }
         });
 
-        // Throttled listener join notifications to prevent browser freeze at scale
-        let pendingJoins = 0;
-        let joinNotifTimer: ReturnType<typeof setTimeout> | null = null;
-
         socket.on('watcher', (watcherId: string) => {
             console.log('New listener joined:', watcherId);
             setListenerCount((prev) => prev + 1);
-            pendingJoins++;
-
-            // Batch notifications: show one toast every 5 seconds max
-            if (!joinNotifTimer) {
-                joinNotifTimer = setTimeout(() => {
-                    if (pendingJoins > 0) {
-                        notifications.show({
-                            title: 'New Listeners',
-                            message: `${pendingJoins} listener${pendingJoins > 1 ? 's' : ''} joined your broadcast!`,
-                            color: 'teal',
-                            icon: <IconUsers size={16} />,
-                            autoClose: 3000,
-                        });
-                        pendingJoins = 0;
-                    }
-                    joinNotifTimer = null;
-                }, 5000);
-            }
         });
 
         socket.on('listener-left', (listenerId: string) => {
