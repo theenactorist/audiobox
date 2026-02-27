@@ -569,16 +569,17 @@ io.on('connection', (socket) => {
             const startTime = new Date(broadcaster.startTime);
             const duration = Math.floor((new Date(endTime) - startTime) / 1000); // seconds
 
-            // Cleanup HLS stream
+            // Step 1: Stop FFmpeg gracefully — write #EXT-X-ENDLIST to signal end of stream
             const hlsStream = hlsStreams[streamId];
             if (hlsStream) {
-                hlsStream.inputStream.end();
+                hlsStream.inputStream.end(); // Stop sending audio data to FFmpeg
+                // Send SIGINT (graceful stop) so FFmpeg writes the final segment + #EXT-X-ENDLIST
                 hlsStream.ffmpegProcess.kill('SIGINT');
                 delete hlsStreams[streamId];
-                console.log(`HLS stream cleaned up for ${streamId}`);
+                console.log(`HLS stream stopped gracefully for ${streamId} — final segments being written`);
             }
 
-            // Save to history
+            // Save to history immediately
             addToHistory({
                 streamId,
                 title: broadcaster.title,
@@ -590,10 +591,22 @@ io.on('connection', (socket) => {
                 userId: broadcaster.userId
             });
 
+            // Remove broadcaster record immediately (prevents new listeners from joining)
             delete broadcasters[streamId];
-            delete streamListeners[streamId];
-            io.to(streamId).emit('stream-ended');
-            console.log(`Stream ended by user action: ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+
+            // Step 2: Grace period — let listeners consume remaining buffered audio
+            // HLS has ~16-20s latency, so listeners need time to hear the final segments.
+            // We wait 25s before notifying listeners, giving them time to play through
+            // all remaining audio. The HLS.js player will naturally stop when it hits
+            // #EXT-X-ENDLIST in the playlist.
+            const GRACE_PERIOD_MS = 25000; // 25 seconds
+            console.log(`Stream ${streamId} ending in ${GRACE_PERIOD_MS / 1000}s (grace period for listeners)...`);
+
+            setTimeout(() => {
+                io.to(streamId).emit('stream-ended');
+                delete streamListeners[streamId];
+                console.log(`Stream ended (after grace period): ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+            }, GRACE_PERIOD_MS);
         }
     });
 

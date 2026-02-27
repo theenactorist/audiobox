@@ -1279,6 +1279,30 @@ export default function StudioPage() {
                                 )}
                             </div>
 
+                            {/* Android-specific warning: OS kills microphone when Chrome is backgrounded */}
+                            {/Android/i.test(navigator.userAgent) && !isLive && (
+                                <div style={{
+                                    marginTop: 16,
+                                    padding: "12px 14px",
+                                    borderRadius: 10,
+                                    background: "rgba(251, 191, 36, 0.08)",
+                                    border: `1px solid rgba(251, 191, 36, 0.25)`,
+                                    display: "flex",
+                                    gap: 10,
+                                    alignItems: "flex-start",
+                                    fontSize: 13,
+                                    color: COLORS.amber,
+                                    fontFamily: "'DM Sans', sans-serif",
+                                    lineHeight: 1.5,
+                                }}>
+                                    <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+                                    <span>
+                                        <strong>Android tip:</strong> Keep Chrome open and your screen awake while broadcasting.
+                                        Android pauses the microphone if you switch apps or lock your phone.
+                                    </span>
+                                </div>
+                            )}
+
                             {!isLive ? (
                                 !isMonitoring && (
                                     <button
