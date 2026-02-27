@@ -26,6 +26,20 @@ const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wgh
 
 const releases = [
     {
+        date: "February 27, 2026",
+        title: "iOS Reliability & Studio Pro Fixes",
+        icon: <IconRocket size={24} color={COLORS.green} />,
+        iconBg: COLORS.greenBg,
+        iconBorder: COLORS.greenBorder,
+        updates: [
+            { type: "feature", text: "Studio Seamless Takeover: Co-hosts can now seamlessly take over an active broadcast from another device with a single click." },
+            { type: "fix", text: "Massive 300% volume boost for mobile broadcasters, ensuring your voice is heard loud and clear even on quiet phone microphones." },
+            { type: "fix", text: "Bulletproof Backgrounding: Streams now survive switching tabs or answering phone calls on iOS, automatically recovering your audio when you return." },
+            { type: "fix", text: "Fixed an issue where audio was only playing in the left ear for listeners. Broadcasts are now perfectly centered." },
+            { type: "improvement", text: "New tap-to-enable microphone flow for iOS, fixing the silent permission block on iPhones." },
+        ]
+    },
+    {
         date: "February 25, 2026",
         title: "Crystal Clear Audio & Studio Polish",
         icon: <IconSparkles size={24} color={COLORS.orange} />,
