@@ -59,6 +59,9 @@ app.use('/hls', express.static(path.join(__dirname, 'hls'), {
         // Prevent caching of m3u8 playlists for live streaming
         if (filePath.endsWith('.m3u8')) {
             res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.endsWith('.ts')) {
+            // Aggressive caching for audio segments since they never change once created
+            res.set('Cache-Control', 'public, max-age=60, s-maxage=120');
         }
     }
 }));
@@ -130,7 +133,7 @@ app.get('/api/active-streams', (req, res) => {
                 description: broadcaster.description,
                 startTime: broadcaster.startTime,
                 listenerCount: broadcaster.currentListeners,
-                hlsUrl: `/hls/${streamId}.m3u8`,
+                hlsUrl: `https://audiobox-thenew.b-cdn.net/hls/${streamId}.m3u8`,
                 userId: broadcaster.userId
             });
         }

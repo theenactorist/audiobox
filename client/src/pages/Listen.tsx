@@ -229,7 +229,9 @@ export default function ListenerPage() {
         }
 
         const baseUrl = getServerUrl();
-        const hlsUrl = `${baseUrl}${activeStream.hlsUrl}`;
+        const hlsUrl = activeStream.hlsUrl.startsWith('http')
+            ? activeStream.hlsUrl
+            : `${baseUrl}${activeStream.hlsUrl}`;
 
         console.log('Loading HLS stream:', hlsUrl);
 
