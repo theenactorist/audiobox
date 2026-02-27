@@ -60,12 +60,13 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
             // Use a logarithmic/exponential curve to map bins to bars, giving more detail to lower/mid frequencies
             const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
 
-            for (let i = 0; i < 48; i++) {
-                // Logarithmic index mapping: i^2 / 48^2 * usefulBins
+            // Generate 24 bars for one half of the waveform
+            for (let i = 0; i < 24; i++) {
+                // Logarithmic index mapping: i^2 / 24^2 * usefulBins
                 // This stretches out the lower bins (bass/vocals) across more bars, 
                 // and compresses the high frequency bins into fewer bars.
-                const startRatio = Math.pow(i / 48, 2);
-                const endRatio = Math.pow((i + 1) / 48, 2);
+                const startRatio = Math.pow(i / 24, 2);
+                const endRatio = Math.pow((i + 1) / 24, 2);
 
                 const startIndex = Math.floor(startRatio * usefulBins);
                 let endIndex = Math.floor(endRatio * usefulBins);
@@ -84,13 +85,15 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
                 const kineticVal = Math.pow(normalizedVal, 1.2); // slight exponential curve for snap
 
                 // Scale to 8-100%
-                let percent = 8 + (kineticVal * 90); // reduced from 120 to avoid flat-top clipping
+                let percent = 8 + (kineticVal * 90);
                 percent = Math.max(8, Math.min(100, percent));
 
                 newBars.push(percent);
             }
 
-            setBars(newBars);
+            // Mirror the bars [High...Low, Low...High] so the loudest (voice) is in the center
+            const mirroredBars = [...newBars.slice().reverse(), ...newBars];
+            setBars(mirroredBars);
             animationRef.current = requestAnimationFrame(update);
         };
 
@@ -290,6 +293,7 @@ export default function StudioPage() {
     const [validationErrors, setValidationErrors] = useState<{ title?: string, device?: string }>({});
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isPublic, setIsPublic] = useState(false);
+    const [mobileTab, setMobileTab] = useState<'setup' | 'live' | 'history'>('setup');
 
     const isMobile = useMediaQuery('(max-width: 768px)');
     const [isMonitoring, setIsMonitoring] = useState(false); // Browser B: monitoring only, no audio pipeline
@@ -720,6 +724,7 @@ export default function StudioPage() {
             keepAlive.activate(stream);
 
             setIsLive(true);
+            setMobileTab('live'); // Auto-navigate to live tab on mobile
             setStartTime(new Date());
             setHasUnsavedChanges(false);
             console.log('Broadcast started with HLS');
@@ -849,6 +854,14 @@ export default function StudioPage() {
     }, [audioContext, stream, startStream]);
 
     const handleStopStream = async () => {
+        // Immediately update dashboard state (optimistic update)
+        setIsMonitoring(false);
+        setMobileTab('setup'); // Auto-navigate back to setup tab
+        setStartTime(null);
+        setListenerCount(0);
+        setShowEndConfirmation(false);
+        setHasUnsavedChanges(false);
+
         if (mediaRecorderRef.current) {
             mediaRecorderRef.current.stop();
             mediaRecorderRef.current = null;
@@ -864,11 +877,6 @@ export default function StudioPage() {
         // Clear localStorage
         localStorage.removeItem('streamState');
 
-        setIsMonitoring(false);
-        setStartTime(null);
-        setListenerCount(0);
-        setShowEndConfirmation(false);
-        setHasUnsavedChanges(false);
         console.log('Broadcast stopped');
         notifications.show({
             title: 'Broadcast Ended',
@@ -883,7 +891,9 @@ export default function StudioPage() {
     };
 
     const listenerUrl = typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.host}/listen`
+        ? (Capacitor.isNativePlatform()
+            ? 'https://audiobox.wearethenew.org/listen'
+            : `${window.location.protocol}//${window.location.host}/listen`)
         : '';
 
 
@@ -919,12 +929,11 @@ export default function StudioPage() {
     // Handle stream change while live (e.g. microphone switch)
     useEffect(() => {
         if (isLive && stream && mediaRecorderRef.current && mediaRecorderRef.current.stream.id !== stream.id) {
-            console.log('Stream changed, restarting recorder...');
+            console.log('Stream changed, overlapping recorders to avoid audio gap...');
 
-            // Stop old recorder
-            mediaRecorderRef.current.stop();
+            const oldRecorder = mediaRecorderRef.current;
 
-            // Start new recorder with new stream
+            // Start new recorder FIRST so there's no gap in audio chunks
             const mediaRecorder = new MediaRecorder(stream, {
                 mimeType: 'audio/webm;codecs=opus',
             });
@@ -942,6 +951,9 @@ export default function StudioPage() {
 
             mediaRecorder.start(100);
             mediaRecorderRef.current = mediaRecorder;
+
+            // Now stop old recorder (there may be a brief overlap, which is better than silence)
+            try { oldRecorder.stop(); } catch (_) { /* already stopped */ }
         }
     }, [stream, isLive]);
 
@@ -1037,15 +1049,20 @@ export default function StudioPage() {
                         min-height: 200px !important;
                         flex: 1 !important;
                     }
+                    /* Hide desktop header & live bar on mobile — replaced by tab top bar & live content */
+                    .studio-desktop-header { display: none !important; }
+                    .studio-live-bar { display: none !important; }
+                    /* Ensure content doesn't overlap bottom nav */
+                    .studio-mobile-content { padding-bottom: 80px !important; }
                 }
             `}</style>
 
             {showEndConfirmation && <ConfirmModal onConfirm={handleStopStream} onCancel={() => setShowEndConfirmation(false)} />}
 
-            <div className="studio-root" style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+            <div className="studio-root" style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", paddingTop: Capacitor.isNativePlatform() ? 'env(safe-area-inset-top, 32px)' : undefined }}>
 
-                {/* Header */}
-                <header className="studio-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${COLORS.border}`, flexWrap: "wrap", gap: 16 }}>
+                {/* Header — desktop only */}
+                <header className="studio-header studio-desktop-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", borderBottom: `1px solid ${COLORS.border}`, flexWrap: "wrap", gap: 16 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
                         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>AudioBox</h1>
                         <span className="header-subtitle" style={{ fontSize: 13, color: COLORS.textMuted }}>Your personal broadcasting station</span>
@@ -1132,8 +1149,8 @@ export default function StudioPage() {
                                     </button>
                                 ) : isLive ? (
                                     <span style={{ fontSize: 12, color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                        Changes auto-save
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                                        Up to date
                                     </span>
                                 ) : null}
                             </div>
@@ -1232,7 +1249,7 @@ export default function StudioPage() {
                                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
                                                     {permissionDenied ? 'Microphone blocked — tap to retry' : 'Tap to enable microphone'}
                                                 </button>
-                                                {permissionDenied && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, lineHeight: 1.4 }}>Permission was denied. Check your browser settings and allow microphone access for this site.</div>}
+                                                {permissionDenied && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, lineHeight: 1.4 }}>{Capacitor.isNativePlatform() ? 'Permission was denied. Please go to your phone\'s Settings → Apps → AudioBox Studio → Permissions → Microphone and enable it.' : 'Permission was denied. Check your browser settings and allow microphone access for this site.'}</div>}
                                                 {validationErrors.device && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.device}</div>}
                                             </>
                                         ) : (
@@ -1291,7 +1308,8 @@ export default function StudioPage() {
                             </div>
 
                             {/* Android-specific warning: OS kills microphone when Chrome is backgrounded */}
-                            {/Android/i.test(navigator.userAgent) && !isLive && (
+                            {/* Only show this tip on Android web browsers, NOT in the native app */}
+                            {/Android/i.test(navigator.userAgent) && !Capacitor.isNativePlatform() && !isLive && (
                                 <div style={{
                                     marginTop: 16,
                                     padding: "12px 14px",
@@ -1308,7 +1326,7 @@ export default function StudioPage() {
                                 }}>
                                     <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
                                     <span>
-                                        <strong>Android tip:</strong> Keep Chrome open and your screen awake while broadcasting.
+                                        <strong>Android tip:</strong> Keep your browser open and your screen awake while broadcasting.
                                         Android pauses the microphone if you switch apps or lock your phone.
                                     </span>
                                 </div>
@@ -1452,24 +1470,232 @@ export default function StudioPage() {
                         <>
                             {/* Main Content Area */}
                             {isMobile ? (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 12 }}>
-                                    {/* Mobile Ordering Logic */}
-                                    {!isLive ? (
-                                        <>
-                                            {streamSetupCard}
-                                            {audioMonitorCard}
-                                            {listenerLinkCard}
-                                            {pastBroadcastsCard}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {listenerLinkCard}
-                                            {audioMonitorCard}
-                                            {streamSetupCard}
-                                            {pastBroadcastsCard}
-                                        </>
-                                    )}
-                                </div>
+                                <>
+                                    {/* Mobile Top App Bar */}
+                                    <div style={{
+                                        padding: '14px 20px',
+                                        borderBottom: `1px solid ${COLORS.border}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        background: COLORS.surface,
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
+                                                {mobileTab === 'setup' ? 'Stream Setup' : mobileTab === 'live' ? 'Live' : 'Past Broadcasts'}
+                                            </h1>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            {/* Connection indicator */}
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                fontSize: 12, fontWeight: 500,
+                                                color: isConnected ? COLORS.green : COLORS.red,
+                                            }}>
+                                                <div style={{
+                                                    width: 8, height: 8, borderRadius: '50%',
+                                                    background: isConnected ? COLORS.green : COLORS.red,
+                                                    boxShadow: isConnected ? `0 0 6px ${COLORS.green}` : 'none',
+                                                }} />
+                                                {isConnected ? 'Online' : 'Offline'}
+                                            </div>
+                                            {isLive && (
+                                                <div style={{
+                                                    padding: '4px 10px', borderRadius: 20,
+                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    color: COLORS.red,
+                                                    fontSize: 11, fontWeight: 700,
+                                                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                                                    animation: 'pulse 2s infinite',
+                                                }}>
+                                                    ● Live
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Mobile Tab Content */}
+                                    <div className="studio-mobile-content" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {mobileTab === 'setup' && (
+                                            <>
+                                                {streamSetupCard}
+                                                {listenerLinkCard}
+                                            </>
+                                        )}
+                                        {mobileTab === 'live' && (
+                                            <>
+                                                {isLive ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                                        {/* Stream Stats Row */}
+                                                        <div style={{
+                                                            background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.border}`, padding: '20px 24px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                        }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Duration</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: COLORS.red, animation: 'pulse 2s infinite' }} />
+                                                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 600, color: COLORS.text }}>
+                                                                        <LiveTimer startTimeStr={startTime} />
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ width: 1, height: 40, background: COLORS.border }} />
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+                                                                <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Listeners</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
+                                                                    <span style={{ fontSize: 24, fontWeight: 600, color: COLORS.text }}>{listenerCount}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Audio Monitor Layout */}
+                                                        <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.borderLight}`, padding: 20 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                                <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>Audio levels</h2>
+                                                                <span style={{ fontSize: 11, fontWeight: 600, color: isConnected ? COLORS.green : COLORS.red, background: isConnected ? 'rgba(52, 211, 153, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '4px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                    {isConnected ? 'Signal strong' : 'Signal lost'}
+                                                                </span>
+                                                            </div>
+
+                                                            <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+                                                                {/* Waveform */}
+                                                                <div style={{ flex: 1, background: COLORS.bg, borderRadius: 12, padding: "8px", border: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", justifyContent: "flex-end", overflow: "hidden" }}>
+                                                                    <StudioVisualizer active={!!stream} analyser={analyser} />
+                                                                </div>
+
+                                                                {/* Vertical fader */}
+                                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: COLORS.bg, borderRadius: 12, padding: "12px", border: `1px solid ${COLORS.border}`, minWidth: 60 }}>
+                                                                    <div style={{ fontSize: 10, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Vol</div>
+                                                                    <VerticalFader isMuted={isMuted} onMuteToggle={toggleMute} volume={volume} onVolumeChange={updateVolume} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Share / Link Row */}
+                                                        {listenerLinkCard}
+
+                                                        {/* End Stream Button */}
+                                                        <button
+                                                            onClick={() => setShowEndConfirmation(true)}
+                                                            style={{
+                                                                width: '100%', padding: '16px', borderRadius: 16,
+                                                                border: `1px solid rgba(239, 68, 68, 0.3)`,
+                                                                background: COLORS.redBg, color: COLORS.red,
+                                                                fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                                                                fontFamily: "'DM Sans', sans-serif",
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                                                marginTop: 8,
+                                                            }}
+                                                        >
+                                                            <div style={{ width: 10, height: 10, borderRadius: 2, background: 'currentColor' }} />
+                                                            End broadcast
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{
+                                                        background: COLORS.surface, borderRadius: 16,
+                                                        border: `1px solid ${COLORS.border}`, padding: 24,
+                                                        textAlign: 'center',
+                                                    }}>
+                                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={COLORS.textMuted} strokeWidth="1.5" style={{ marginBottom: 12, opacity: 0.5 }}>
+                                                            <path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" />
+                                                        </svg>
+                                                        <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.textSecondary, marginBottom: 6 }}>Not broadcasting</div>
+                                                        <div style={{ fontSize: 13, color: COLORS.textMuted, lineHeight: 1.5 }}>Go to the Setup tab to configure your stream, then tap "Go live".</div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        {mobileTab === 'history' && (
+                                            <>{pastBroadcastsCard}</>
+                                        )}
+                                    </div>
+
+                                    {/* M3-Inspired Bottom Navigation Bar */}
+                                    <nav style={{
+                                        position: 'fixed', bottom: 0, left: 0, right: 0,
+                                        background: COLORS.surface,
+                                        borderTop: `1px solid ${COLORS.border}`,
+                                        display: 'flex',
+                                        justifyContent: 'space-around',
+                                        alignItems: 'center',
+                                        height: 64,
+                                        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                                        zIndex: 1000,
+                                    }}>
+                                        {[
+                                            {
+                                                key: 'setup' as const, label: 'Setup', icon: (active: boolean) => (
+                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active ? 1.5 : 2}>
+                                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                        <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                                                    </svg>
+                                                )
+                                            },
+                                            {
+                                                key: 'live' as const, label: 'Live', icon: (active: boolean) => (
+                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active ? 1.5 : 2}>
+                                                        <path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" />
+                                                    </svg>
+                                                )
+                                            },
+                                            {
+                                                key: 'history' as const, label: 'History', icon: (active: boolean) => (
+                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active ? 1.5 : 2}>
+                                                        <circle cx="12" cy="12" r="10" />
+                                                        <polyline points="12 6 12 12 16 14" />
+                                                    </svg>
+                                                )
+                                            },
+                                        ].map(tab => {
+                                            const active = mobileTab === tab.key;
+                                            return (
+                                                <button
+                                                    key={tab.key}
+                                                    onClick={() => setMobileTab(tab.key)}
+                                                    style={{
+                                                        background: 'transparent', border: 'none',
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                                                        cursor: 'pointer', padding: '8px 20px',
+                                                        color: active ? COLORS.green : COLORS.textMuted,
+                                                        transition: 'color 0.2s',
+                                                        position: 'relative',
+                                                    }}
+                                                >
+                                                    {/* M3 pill indicator */}
+                                                    <div style={{
+                                                        position: 'relative',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        padding: '4px 16px',
+                                                        borderRadius: 16,
+                                                        background: active ? 'rgba(52, 211, 153, 0.15)' : 'transparent',
+                                                        transition: 'background 0.2s',
+                                                    }}>
+                                                        {tab.icon(active)}
+                                                        {/* Live badge */}
+                                                        {tab.key === 'live' && isLive && (
+                                                            <div style={{
+                                                                position: 'absolute', top: 2, right: 8,
+                                                                width: 8, height: 8, borderRadius: '50%',
+                                                                background: COLORS.red,
+                                                                boxShadow: `0 0 6px ${COLORS.red}`,
+                                                                animation: 'pulse 2s infinite',
+                                                            }} />
+                                                        )}
+                                                    </div>
+                                                    <span style={{
+                                                        fontSize: 11, fontWeight: active ? 700 : 500,
+                                                        letterSpacing: '0.02em',
+                                                    }}>{tab.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </nav>
+                                </>
                             ) : (
                                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 380px)", gap: 24, padding: "32px 24px", maxWidth: 1280, margin: "0 auto", alignItems: "start" }}>
                                     {/* Desktop Layout - Normal 2 Columns */}

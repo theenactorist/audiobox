@@ -27,9 +27,12 @@ export default function ListenerPage() {
     const [expandDescription, setExpandDescription] = useState(false);
     const [lastPublicBroadcast, setLastPublicBroadcast] = useState<LastPublicBroadcast | null>(null);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    const [streamEnding, setStreamEnding] = useState(false); // Buffer period after stream ends
+    const [playLoading, setPlayLoading] = useState(false); // Loading state for Start Listening button
     const hasListenedRef = useRef(false);
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+    const gainNodeRef = useRef<GainNode | null>(null); // GainNode for iOS volume control
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -56,10 +59,15 @@ export default function ListenerPage() {
         });
 
         socket.on('stream-ended', () => {
-            console.log('Stream ended event received');
-            joinedStreamRef.current = null; // Clear joined stream
-            setActiveStream(null);
-            setIsPlaying(false);
+            console.log('Stream ended event received — giving listeners 15s buffer');
+            setStreamEnding(true); // Show "Stream ending..." indicator
+            // Give listeners time to hear the remaining buffered audio
+            setTimeout(() => {
+                joinedStreamRef.current = null;
+                setActiveStream(null);
+                setIsPlaying(false);
+                setStreamEnding(false);
+            }, 15000);
         });
 
         socket.on('metadata-updated', (data: any) => {
@@ -154,7 +162,7 @@ export default function ListenerPage() {
         }
     }, []);
 
-    // Setup Audio Context for Visualizer
+    // Setup Audio Context for Visualizer + GainNode for iOS volume control
     useEffect(() => {
         if (isPlaying && audioRef.current && !analyser) {
             try {
@@ -176,7 +184,14 @@ export default function ListenerPage() {
                     const newAnalyser = ctx.createAnalyser();
                     newAnalyser.fftSize = 256;
 
-                    source.connect(newAnalyser);
+                    // Insert GainNode for programmatic volume control (iOS ignores audio.volume)
+                    const gainNode = ctx.createGain();
+                    gainNode.gain.value = muted ? 0 : volume / 100;
+                    gainNodeRef.current = gainNode;
+
+                    // Chain: source → gainNode → analyser → destination
+                    source.connect(gainNode);
+                    gainNode.connect(newAnalyser);
                     newAnalyser.connect(ctx.destination);
 
                     sourceRef.current = source;
@@ -293,7 +308,7 @@ export default function ListenerPage() {
                 hlsRef.current = null;
             }
         };
-    }, [activeStream]);
+    }, [activeStream?.hlsUrl]);
 
     // Media Session API
     useEffect(() => {
@@ -350,22 +365,68 @@ export default function ListenerPage() {
         };
     }, [isPlaying]);
 
-    // Volume control
+    // Volume control — use GainNode for iOS compatibility, fallback to audio.volume
     useEffect(() => {
+        const targetVolume = muted ? 0 : volume / 100;
+        // Use GainNode (works on iOS where audio.volume is read-only)
+        if (gainNodeRef.current) {
+            gainNodeRef.current.gain.value = targetVolume;
+        }
+        // Also set audio.volume as fallback for non-iOS browsers
         if (audioRef.current) {
-            // Map 0-100 UI value to 0.0-1.0 (standard HTML audio volume range)
-            audioRef.current.volume = muted ? 0 : volume / 100;
+            try { audioRef.current.volume = targetVolume; } catch (_) { /* iOS throws on volume set */ }
         }
     }, [volume, muted, isPlaying]); // include isPlaying so volume is applied when playback starts
 
     const handlePlay = async () => {
-        if (audioRef.current) {
-            try {
+        if (!audioRef.current) return;
+        setPlayLoading(true);
+        try {
+            // If HLS is loaded but not playing, just play
+            if (audioRef.current.readyState >= 2) {
                 await audioRef.current.play();
                 setIsPlaying(true);
-            } catch (e) {
-                console.error("Play failed", e);
+                setPlayLoading(false);
+                return;
             }
+
+            // If HLS hasn't loaded yet, wait for it to be ready
+            if (hlsRef.current) {
+                hlsRef.current.startLoad();
+                // Wait for manifest to be parsed, then play
+                await new Promise<void>((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('HLS load timeout')), 10000);
+                    hlsRef.current!.once(Hls.Events.MANIFEST_PARSED, () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                    hlsRef.current!.once(Hls.Events.ERROR, (_e, data) => {
+                        if (data.fatal) {
+                            clearTimeout(timeout);
+                            reject(new Error('HLS fatal error'));
+                        }
+                    });
+                });
+            }
+
+            // Now try playing — retry up to 3 times with short delays
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    await audioRef.current.play();
+                    setIsPlaying(true);
+                    break;
+                } catch (e) {
+                    if (attempt < 2) {
+                        await new Promise(r => setTimeout(r, 500));
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Play failed after retries", e);
+        } finally {
+            setPlayLoading(false);
         }
     };
 
@@ -734,7 +795,7 @@ export default function ListenerPage() {
                                                     background: muted ? COLORS.textMuted : COLORS.green,
                                                     boxShadow: muted ? "none" : `0 0 6px ${COLORS.green}`,
                                                 }} />
-                                                {muted ? "Muted" : "Listening"}
+                                                {streamEnding ? "Stream ending..." : (muted ? "Muted" : "Listening")}
                                             </span>
                                             <span style={{ fontSize: 12, color: COLORS.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>
                                                 <ListenTimer startTimeStr={activeStream.startTime} />
@@ -782,15 +843,26 @@ export default function ListenerPage() {
                             {!isPlaying ? (
                                 <button
                                     onClick={handlePlay}
+                                    disabled={playLoading}
                                     style={{
                                         width: "100%", padding: "18px", borderRadius: 14, border: "none",
-                                        background: `linear-gradient(135deg, ${COLORS.green}, #2bb37e)`,
-                                        color: "#0a1a12", fontSize: 16, fontWeight: 700, cursor: "pointer",
+                                        background: playLoading ? COLORS.border : `linear-gradient(135deg, ${COLORS.green}, #2bb37e)`,
+                                        color: playLoading ? COLORS.textMuted : "#0a1a12", fontSize: 16, fontWeight: 700, cursor: playLoading ? "not-allowed" : "pointer",
                                         fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                                        opacity: playLoading ? 0.7 : 1, transition: "all 0.2s",
                                     }}
                                 >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                                    {hasListenedRef.current ? 'Rejoin live' : 'Start listening'}
+                                    {playLoading ? (
+                                        <>
+                                            <div style={{ width: 18, height: 18, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                            Connecting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                                            {hasListenedRef.current ? 'Rejoin live' : 'Start listening'}
+                                        </>
+                                    )}
                                 </button>
                             ) : (
                                 <button
