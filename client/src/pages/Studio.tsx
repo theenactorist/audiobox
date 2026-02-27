@@ -11,6 +11,8 @@ import io, { Socket } from 'socket.io-client';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
 import { getServerUrl } from '@/lib/serverUrl';
+import { Capacitor } from '@capacitor/core';
+import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
 
 // Styled Constants from audiobox-dashboard.jsx
 const COLORS = {
@@ -657,6 +659,15 @@ export default function StudioPage() {
         }
 
         try {
+            // Native App Check: Request Foreground Service permissions (for notifications)
+            if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+                try {
+                    await ForegroundService.requestPermissions();
+                } catch (err) {
+                    console.warn('Could not request foreground service permissions:', err);
+                }
+            }
+
             // Start the stream and emit metadata to server
             socketRef.current.emit('start-stream', {
                 streamId,

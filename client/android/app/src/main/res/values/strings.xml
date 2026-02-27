@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AudioBox Studio</string>
+    <string name="title_activity_main">AudioBox Studio</string>
+    <string name="package_name">org.wearethenew.audiobox</string>
+    <string name="custom_url_scheme">org.wearethenew.audiobox</string>
+</resources>

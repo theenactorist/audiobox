@@ -20,16 +20,19 @@ import { useRef, useCallback } from 'react';
 // This is a valid 1-sample mono 8-bit WAV at 8000Hz
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
+import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
+import { Capacitor } from '@capacitor/core';
+
 export function useKeepAlive() {
     const silentAudioRef = useRef<HTMLAudioElement | null>(null);
     const streamAudioRef = useRef<HTMLAudioElement | null>(null);
 
     /**
      * Start the silent audio loop (Layer 1), attach live stream (Layer 2),
-     * and register Media Session (Layer 3).
+     * and register Media Session/Foreground Service (Layer 3).
      * MUST be called from a user gesture handler (click) to satisfy autoplay policy.
      */
-    const activate = useCallback((liveStream?: MediaStream) => {
+    const activate = useCallback(async (liveStream?: MediaStream) => {
         // Layer 1: Silent audio keep-alive
         if (!silentAudioRef.current) {
             const audio = new Audio(SILENT_WAV);
@@ -47,7 +50,6 @@ export function useKeepAlive() {
         }
 
         // Layer 2: Attach live MediaStream to hidden <audio> element
-        // This makes Safari treat the page as a "live media player"
         if (liveStream && !streamAudioRef.current) {
             const streamEl = new Audio();
             streamEl.srcObject = liveStream;
@@ -63,12 +65,26 @@ export function useKeepAlive() {
             console.log('[KeepAlive] MediaStream attached to hidden audio element');
         }
 
-        // Layer 3: Media Session API — Android Chrome notification integration
-        // This registers the page as an active media player in the OS, which:
-        //   - Shows a persistent "Now Playing" notification on Android
-        //   - Prevents Chrome from aggressively throttling the tab
-        //   - Gives the OS a strong signal that audio recording is intentional
-        if ('mediaSession' in navigator) {
+        // Layer 3: Native Android Foreground Service (Capacitor)
+        // If we are running inside the native Android APK wrapper, this starts
+        // a formal foreground service that forces Android to keep the microphone alive
+        // even when the screen is locked or the app is minimized.
+        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+            try {
+                await ForegroundService.startForegroundService({
+                    id: 112233,
+                    title: 'AudioBox is Live',
+                    body: 'Broadcasting in progress. Tap to return to studio.',
+                    smallIcon: 'ic_stat_mic', // Built-in android mic icon fallback
+                });
+                console.log('[KeepAlive] Native Android Foreground Service started');
+            } catch (err) {
+                console.error('[KeepAlive] Failed to start native Foreground Service:', err);
+            }
+        }
+        // Layer 3: Fallback Media Session API (Web only)
+        // For browsers (Chrome Android), this gives a weaker but still helpful signal.
+        else if ('mediaSession' in navigator) {
             try {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: 'AudioBox — Broadcasting Live',
@@ -76,14 +92,10 @@ export function useKeepAlive() {
                     album: 'Live Broadcast',
                 });
 
-                // Set playback state to "playing" so Android keeps the tab alive
                 navigator.mediaSession.playbackState = 'playing';
 
-                // Handle media button events (e.g. headphone pause button)
                 navigator.mediaSession.setActionHandler('pause', () => {
                     console.log('[KeepAlive] Media session pause requested — ignoring to keep broadcast alive');
-                    // Don't actually pause — we want to keep broadcasting
-                    // Re-assert playing state
                     navigator.mediaSession.playbackState = 'playing';
                 });
                 navigator.mediaSession.setActionHandler('play', () => {
@@ -91,7 +103,7 @@ export function useKeepAlive() {
                     navigator.mediaSession.playbackState = 'playing';
                 });
 
-                console.log('[KeepAlive] Media Session API registered (Android notification active)');
+                console.log('[KeepAlive] Media Session API registered (Web notification active)');
             } catch (err) {
                 console.warn('[KeepAlive] Media Session API failed:', err);
             }
@@ -99,9 +111,9 @@ export function useKeepAlive() {
     }, []);
 
     /**
-     * Stop all keep-alive audio elements and clear Media Session.
+     * Stop all keep-alive audio elements and clear native/web services.
      */
-    const deactivate = useCallback(() => {
+    const deactivate = useCallback(async () => {
         if (silentAudioRef.current) {
             silentAudioRef.current.pause();
             silentAudioRef.current.src = '';
@@ -116,8 +128,17 @@ export function useKeepAlive() {
             console.log('[KeepAlive] Stream audio element removed');
         }
 
-        // Clear Media Session
-        if ('mediaSession' in navigator) {
+        // Clear Native Foreground Service
+        if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+            try {
+                await ForegroundService.stopForegroundService();
+                console.log('[KeepAlive] Native Android Foreground Service stopped');
+            } catch (err) {
+                console.error('[KeepAlive] Failed to stop native Foreground Service:', err);
+            }
+        }
+        // Clear Web Media Session
+        else if ('mediaSession' in navigator) {
             try {
                 navigator.mediaSession.playbackState = 'none';
                 navigator.mediaSession.metadata = null;
