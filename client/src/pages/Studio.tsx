@@ -408,7 +408,7 @@ export default function StudioPage() {
         socketRef.current = socket;
 
         socket.on('connect', () => {
-            console.log('Connected to signaling server');
+            console.log('Connected to signaling server:', socket.id);
             setIsConnected(true);
             notifications.show({
                 title: 'Connected',
@@ -470,6 +470,22 @@ export default function StudioPage() {
                     }).catch(e => console.error("Failed to recover stream", e));
                 }
             }
+
+            // Reconnect logic: Re-announce stream if we were live before disconnect
+            // CRITICAL: Do NOT re-announce if in monitoring mode!
+            if (isLiveRef.current && !isMonitoringRef.current) {
+                console.log('Socket reconnected while live. Re-announcing stream to server...');
+                socketRef.current?.emit('start-stream', {
+                    streamId: streamIdRef.current,
+                    title: titleRef.current,
+                    description: descriptionRef.current,
+                    isPublic: isPublic,
+                    userId: user?.id
+                });
+            } else if (isLiveRef.current && isMonitoringRef.current) {
+                console.log('Socket reconnected in monitoring mode. Rejoining stream room only...');
+                socketRef.current?.emit('join-stream', { streamId: streamIdRef.current });
+            }
         });
 
         socket.on('disconnect', () => {
@@ -482,34 +498,6 @@ export default function StudioPage() {
                 icon: <IconWifiOff size={16} />,
                 autoClose: false,
             });
-        });
-
-        socket.on('connect', () => {
-            console.log('Socket connected:', socket.id);
-
-            // If we are live AND actively broadcasting (not monitoring),
-            // re-announce the stream to the server.
-            // CRITICAL: Do NOT re-announce if in monitoring mode!
-            // Otherwise the monitoring device steals the broadcaster role,
-            // and the "Take over" button will fail with "already broadcasting".
-            if (isLiveRef.current && !isMonitoringRef.current) {
-                console.log('Socket reconnected while live. Re-announcing stream to server...');
-
-                if (socketRef.current) {
-                    socketRef.current.emit('start-stream', {
-                        streamId: streamIdRef.current,
-                        title: titleRef.current,
-                        description: descriptionRef.current,
-                        isPublic: isPublic,
-                        userId: user?.id
-                    });
-                }
-            } else if (isLiveRef.current && isMonitoringRef.current) {
-                console.log('Socket reconnected in monitoring mode. Rejoining stream room only...');
-                if (socketRef.current) {
-                    socketRef.current.emit('join-stream', { streamId: streamIdRef.current });
-                }
-            }
         });
 
         socket.on('continue-stream', () => {
@@ -529,15 +517,31 @@ export default function StudioPage() {
             }
         });
 
+        // Throttled listener join notifications to prevent browser freeze at scale
+        let pendingJoins = 0;
+        let joinNotifTimer: ReturnType<typeof setTimeout> | null = null;
+
         socket.on('watcher', (watcherId: string) => {
             console.log('New listener joined:', watcherId);
             setListenerCount((prev) => prev + 1);
-            notifications.show({
-                title: 'New Listener',
-                message: 'Someone joined your broadcast!',
-                color: 'teal',
-                icon: <IconUsers size={16} />,
-            });
+            pendingJoins++;
+
+            // Batch notifications: show one toast every 5 seconds max
+            if (!joinNotifTimer) {
+                joinNotifTimer = setTimeout(() => {
+                    if (pendingJoins > 0) {
+                        notifications.show({
+                            title: 'New Listeners',
+                            message: `${pendingJoins} listener${pendingJoins > 1 ? 's' : ''} joined your broadcast!`,
+                            color: 'teal',
+                            icon: <IconUsers size={16} />,
+                            autoClose: 3000,
+                        });
+                        pendingJoins = 0;
+                    }
+                    joinNotifTimer = null;
+                }, 5000);
+            }
         });
 
         socket.on('listener-left', (listenerId: string) => {
