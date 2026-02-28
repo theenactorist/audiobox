@@ -290,7 +290,8 @@ export default function StudioPage() {
     const [listenerCount, setListenerCount] = useState(0);
     const [showEndConfirmation, setShowEndConfirmation] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<{ title?: string, device?: string }>({});
+    const [validationErrors, setValidationErrors] = useState<{ title?: string, device?: string, description?: string }>({});
+    const [isStopping, setIsStopping] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isPublic, setIsPublic] = useState(false);
     const [mobileTab, setMobileTab] = useState<'setup' | 'live' | 'history'>('setup');
@@ -854,35 +855,47 @@ export default function StudioPage() {
     }, [audioContext, stream, startStream]);
 
     const handleStopStream = async () => {
-        // Immediately update dashboard state (optimistic update)
-        setIsMonitoring(false);
-        setMobileTab('setup'); // Auto-navigate back to setup tab
-        setStartTime(null);
-        setListenerCount(0);
-        setShowEndConfirmation(false);
-        setHasUnsavedChanges(false);
-
-        if (mediaRecorderRef.current) {
-            mediaRecorderRef.current.stop();
-            mediaRecorderRef.current = null;
-        }
-
-        if (socketRef.current) {
-            socketRef.current.emit('end-stream', { streamId, userId: user?.id });
-        }
-
-        // Deactivate iOS background keep-alive
-        keepAlive.deactivate();
-
-        // Clear localStorage
-        localStorage.removeItem('streamState');
-
-        console.log('Broadcast stopped');
+        // Set ending state to keep recording for 16s so listeners hear the final buffer
+        setIsStopping(true);
         notifications.show({
-            title: 'Broadcast Ended',
-            message: 'Your stream has ended successfully',
-            color: 'blue',
+            title: 'Finishing up...',
+            message: 'Waiting 16 seconds to ensure listeners hear your final words.',
+            color: 'orange',
         });
+
+        setTimeout(() => {
+            // Immediately update dashboard state (optimistic update)
+            setIsMonitoring(false);
+            setMobileTab('setup'); // Auto-navigate back to setup tab
+            setStartTime(null);
+            setListenerCount(0);
+            setShowEndConfirmation(false);
+            setHasUnsavedChanges(false);
+
+            if (mediaRecorderRef.current) {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current = null;
+            }
+
+            if (socketRef.current) {
+                socketRef.current.emit('end-stream', { streamId, userId: user?.id });
+            }
+
+            // Deactivate iOS background keep-alive
+            keepAlive.deactivate();
+
+            // Clear localStorage
+            localStorage.removeItem('streamState');
+            // Remove the ending state flag
+            setIsStopping(false);
+
+            console.log('Broadcast stopped');
+            notifications.show({
+                title: 'Broadcast Ended',
+                message: 'Your stream has ended successfully',
+                color: 'blue',
+            });
+        }, 16000); // 16s buffer delay
     };
 
     const handleLogout = async () => {
@@ -926,36 +939,6 @@ export default function StudioPage() {
         }
     };
 
-    // Handle stream change while live (e.g. microphone switch)
-    useEffect(() => {
-        if (isLive && stream && mediaRecorderRef.current && mediaRecorderRef.current.stream.id !== stream.id) {
-            console.log('Stream changed, overlapping recorders to avoid audio gap...');
-
-            const oldRecorder = mediaRecorderRef.current;
-
-            // Start new recorder FIRST so there's no gap in audio chunks
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm;codecs=opus',
-            });
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0 && socketRef.current) {
-                    event.data.arrayBuffer().then((buffer) => {
-                        socketRef.current!.emit('audio-chunk', {
-                            streamId,
-                            chunk: buffer
-                        });
-                    });
-                }
-            };
-
-            mediaRecorder.start(100);
-            mediaRecorderRef.current = mediaRecorder;
-
-            // Now stop old recorder (there may be a brief overlap, which is better than silence)
-            try { oldRecorder.stop(); } catch (_) { /* already stopped */ }
-        }
-    }, [stream, isLive]);
 
     // Setup Web Audio API Analyser for Visualizer when live
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -1126,9 +1109,13 @@ export default function StudioPage() {
                                 </div>
                             )}
                         </div>
-                        <button onClick={() => setShowEndConfirmation(true)} style={{ padding: "8px 20px", borderRadius: 8, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: COLORS.red, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
-                            End stream
+                        <button disabled={isStopping} onClick={() => setShowEndConfirmation(true)} style={{ padding: "8px 20px", borderRadius: 8, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: COLORS.red, fontSize: 13, fontWeight: 600, cursor: isStopping ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", opacity: isStopping ? 0.7 : 1 }}>
+                            {isStopping ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotating"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line></svg>
+                            ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                            )}
+                            {isStopping ? "Stopping..." : "End stream"}
                         </button>
                     </div>
                 )}
@@ -1579,19 +1566,24 @@ export default function StudioPage() {
 
                                                         {/* End Stream Button */}
                                                         <button
+                                                            disabled={isStopping}
                                                             onClick={() => setShowEndConfirmation(true)}
                                                             style={{
                                                                 width: '100%', padding: '16px', borderRadius: 16,
                                                                 border: `1px solid rgba(239, 68, 68, 0.3)`,
                                                                 background: COLORS.redBg, color: COLORS.red,
-                                                                fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                                                                fontSize: 15, fontWeight: 600, cursor: isStopping ? 'not-allowed' : 'pointer',
                                                                 fontFamily: "'DM Sans', sans-serif",
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                                                                marginTop: 8,
+                                                                marginTop: 8, opacity: isStopping ? 0.7 : 1
                                                             }}
                                                         >
-                                                            <div style={{ width: 10, height: 10, borderRadius: 2, background: 'currentColor' }} />
-                                                            End broadcast
+                                                            {isStopping ? (
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotating"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line></svg>
+                                                            ) : (
+                                                                <div style={{ width: 10, height: 10, borderRadius: 2, background: 'currentColor' }} />
+                                                            )}
+                                                            {isStopping ? "Ending broadcast..." : "End broadcast"}
                                                         </button>
                                                     </div>
                                                 ) : (

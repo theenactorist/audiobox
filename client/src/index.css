@@ -11,3 +11,9 @@ body {
 #root {
   min-height: 100vh;
 }
+
+@media (max-width: 768px) {
+  .mantine-Notifications-root {
+    margin-bottom: 80px !important;
+  }
+}

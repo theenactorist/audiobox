@@ -26,6 +26,19 @@ const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wgh
 
 const releases = [
     {
+        date: "February 28, 2026",
+        title: "Studio Navigation & Under-the-Hood Polish",
+        icon: <IconSparkles size={24} color={COLORS.orange} />,
+        iconBg: COLORS.orangeBg,
+        iconBorder: COLORS.orangeBorder,
+        updates: [
+            { type: "fix", text: "Fixed a critical bug that caused 20-second audio loops when switching microphones mid-broadcast. Mic swaps are now seamless." },
+            { type: "fix", text: "Added a 16-second 'Ending broadcast...' countdown to guarantee listeners hear your final words before the stream terminates." },
+            { type: "fix", text: "Elevated mobile notifications so they no longer hide underneath the bottom navigation bar." },
+            { type: "improvement", text: "Polished the mobile Live tab layout to perfectly center the audio visualizer and prevent volume fader overflow." },
+        ]
+    },
+    {
         date: "February 27, 2026",
         title: "iOS Reliability & Studio Pro Fixes",
         icon: <IconRocket size={24} color={COLORS.green} />,
