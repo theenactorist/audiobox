@@ -183,6 +183,16 @@ export default function ListenerPage() {
         }
     };
 
+    // Propagate volume changes to Web Audio GainNode (fixes iOS volume slider)
+    useEffect(() => {
+        if (gainNodeRef.current) {
+            // Apply a slight exponential curve for natural feeling volume
+            const linearVolume = volume / 100;
+            const naturalVolume = Math.pow(linearVolume, 1.5);
+            gainNodeRef.current.gain.value = muted ? 0 : naturalVolume;
+        }
+    }, [volume, muted]);
+
     // Track active listening status for broadcaster counts
     useEffect(() => {
         const socket = socketRef.current;
