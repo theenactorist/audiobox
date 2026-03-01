@@ -368,65 +368,43 @@ export default function ListenerPage() {
     // Volume control — use GainNode for iOS compatibility, fallback to audio.volume
     useEffect(() => {
         const targetVolume = muted ? 0 : volume / 100;
-        // Use GainNode (works on iOS where audio.volume is read-only)
+        // Use GainNode (works on iOS where audio.volume is read-only if Web Audio works)
         if (gainNodeRef.current) {
             gainNodeRef.current.gain.value = targetVolume;
         }
-        // Also set audio.volume as fallback for non-iOS browsers
+        // Also set audio.volume and natively mute as fallback for non-iOS browsers or if Web Audio fails
         if (audioRef.current) {
-            try { audioRef.current.volume = targetVolume; } catch (_) { /* iOS throws on volume set */ }
+            try { audioRef.current.volume = targetVolume; } catch (_) { /* iOS */ }
+            audioRef.current.muted = muted;
         }
     }, [volume, muted, isPlaying]); // include isPlaying so volume is applied when playback starts
 
     const handlePlay = async () => {
         if (!audioRef.current) return;
         setPlayLoading(true);
-        try {
-            // If HLS is loaded but not playing, just play
-            if (audioRef.current.readyState >= 2) {
-                await audioRef.current.play();
-                setIsPlaying(true);
-                setPlayLoading(false);
-                return;
-            }
 
-            // If HLS hasn't loaded yet, wait for it to be ready
+        try {
+            // Instruct HLS.js to start loading (if active)
             if (hlsRef.current) {
                 hlsRef.current.startLoad();
-                // Wait for manifest to be parsed, then play
-                await new Promise<void>((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error('HLS load timeout')), 10000);
-                    hlsRef.current!.once(Hls.Events.MANIFEST_PARSED, () => {
-                        clearTimeout(timeout);
-                        resolve();
-                    });
-                    hlsRef.current!.once(Hls.Events.ERROR, (_e, data) => {
-                        if (data.fatal) {
-                            clearTimeout(timeout);
-                            reject(new Error('HLS fatal error'));
-                        }
-                    });
-                });
             }
 
-            // Now try playing — retry up to 3 times with short delays
-            for (let attempt = 0; attempt < 3; attempt++) {
-                try {
-                    await audioRef.current.play();
-                    setIsPlaying(true);
-                    break;
-                } catch (e) {
-                    if (attempt < 2) {
-                        await new Promise(r => setTimeout(r, 500));
-                    } else {
-                        throw e;
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Play failed after retries", e);
+            // Sync play initiation to satisfy iOS/Safari user interaction policies
+            await audioRef.current.play();
+            setIsPlaying(true);
+        } catch (error) {
+            console.error("Play failed:", error);
+            // On failure, wait a moment and try one more time as a fallback
+            setTimeout(() => {
+                audioRef.current?.play()
+                    .then(() => setIsPlaying(true))
+                    .catch(err => console.error("Fallback play failed:", err))
+                    .finally(() => setPlayLoading(false));
+            }, 1000);
         } finally {
-            setPlayLoading(false);
+            if (audioRef.current.readyState >= 1) {
+                setPlayLoading(false);
+            }
         }
     };
 
@@ -702,9 +680,34 @@ export default function ListenerPage() {
             <link href={linkFont} rel="stylesheet" />
             <style>{`
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-                input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; outline: none; cursor: pointer; }
-                input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: ${COLORS.text}; border: 2px solid ${COLORS.surface}; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-                input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: ${COLORS.text}; border: 2px solid ${COLORS.surface}; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+                
+                input[type="range"] {
+                    -webkit-appearance: none; appearance: none;
+                    height: 24px; /* Larger touch area */
+                    background: transparent;
+                    outline: none; cursor: pointer;
+                    margin: 0;
+                }
+                input[type="range"]::-webkit-slider-runnable-track {
+                    width: 100%; height: 6px; border-radius: 3px;
+                    background: var(--track-bg, ${COLORS.border});
+                }
+                input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none; appearance: none;
+                    width: 18px; height: 18px; border-radius: 50%;
+                    background: ${COLORS.text}; border: 2px solid ${COLORS.surface};
+                    cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                    margin-top: -6px; /* Center thumb on track */
+                }
+                input[type="range"]::-moz-range-track {
+                    width: 100%; height: 6px; border-radius: 3px;
+                    background: var(--track-bg, ${COLORS.border});
+                }
+                input[type="range"]::-moz-range-thumb {
+                    width: 18px; height: 18px; border-radius: 50%;
+                    background: ${COLORS.text}; border: 2px solid ${COLORS.surface};
+                    cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                }
             `}</style>
 
             <audio ref={audioRef} playsInline style={{ display: 'none' }} />
@@ -832,7 +835,7 @@ export default function ListenerPage() {
                                         if (val > 0 && muted) setMuted(false);
                                         if (val === 0) setMuted(true);
                                     }}
-                                    style={{ flex: 1, background: `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` }}
+                                    style={{ flex: 1, '--track-bg': `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` } as React.CSSProperties}
                                 />
 
                                 <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : COLORS.textSecondary, fontWeight: 500, minWidth: 38, textAlign: "right", flexShrink: 0 }}>
