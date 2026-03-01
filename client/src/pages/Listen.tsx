@@ -170,9 +170,18 @@ export default function ListenerPage() {
                 gainNode.gain.value = muted ? 0 : volume / 100;
                 gainNodeRef.current = gainNode;
 
-                // Chain: source → gainNode → analyser → destination
+                // Industry Standard: DynamicsCompressorNode (acting as a Limiter to prevent clipping)
+                const limiterNode = ctx.createDynamicsCompressor();
+                limiterNode.threshold.value = -1.0; // Compress just before 0dBFS (digital clipping limit)
+                limiterNode.knee.value = 5.0;       // Medium-hard knee
+                limiterNode.ratio.value = 20.0;     // High ratio (Acts as a brickwall limiter)
+                limiterNode.attack.value = 0.005;   // Fast attack to instantly catch volume spikes
+                limiterNode.release.value = 0.050;  // Fast release
+
+                // Chain: source → gainNode (Boost) → limiterNode (Anti-clip) → analyser → destination
                 source.connect(gainNode);
-                gainNode.connect(newAnalyser);
+                gainNode.connect(limiterNode);
+                limiterNode.connect(newAnalyser);
                 newAnalyser.connect(ctx.destination);
 
                 sourceRef.current = source;
@@ -183,13 +192,14 @@ export default function ListenerPage() {
         }
     };
 
-    // Propagate volume changes to Web Audio GainNode (fixes iOS volume slider)
+    // Propagate volume changes to Web Audio GainNode (fixes iOS volume slider + enables 300% volume boost)
     useEffect(() => {
         if (gainNodeRef.current) {
-            // Apply a slight exponential curve for natural feeling volume
+            // Apply exponential curve (x^1.5) for natural-feeling auditory perception
+            // Multiply max range by 3.0 to allow for massive volume boosting for quiet microphones
             const linearVolume = volume / 100;
             const naturalVolume = Math.pow(linearVolume, 1.5);
-            gainNodeRef.current.gain.value = muted ? 0 : naturalVolume;
+            gainNodeRef.current.gain.value = muted ? 0 : naturalVolume * 3.0; // 300% overdrive
         }
     }, [volume, muted]);
 
@@ -355,26 +365,33 @@ export default function ListenerPage() {
         };
     }, [isPlaying]);
 
-    // Volume control — use GainNode for iOS compatibility, fallback to audio.volume
+    // Volume control — use GainNode for 300% overdrive + iOS compatibility, fallback to audio.volume
     useEffect(() => {
-        const targetVolume = muted ? 0 : volume / 100;
+        // Linear scale 0.0 to 1.0 based on user slider
+        const linearVolume = muted ? 0 : volume / 100;
 
-        // 1. GainNode (Works on iOS if Web Audio is active)
+        // 1. GainNode (Preferred: allows volume scaling up to 300%)
         if (gainNodeRef.current) {
-            gainNodeRef.current.gain.value = targetVolume;
+            // Apply exponential curve (x^1.5) for natural-feeling auditory perception
+            // Multiply max range by 3.0 to allow for massive volume boosting for quiet microphones
+            const naturalVolume = Math.pow(linearVolume, 1.5);
+            gainNodeRef.current.gain.value = muted ? 0 : naturalVolume * 3.0; // 300% overdrive
         }
 
-        // 2. Native Audio Element (Essential fallback)
+        // 2. Native Audio Element (Fallback for Desktop browsers / without Web Audio)
         if (audioRef.current) {
             try {
+                // The native HTML element is strictly clamped between 0 and 1. 
+                // It cannot do the 300% overdrive, but it ensures basic audio still works.
+                audioRef.current.volume = linearVolume;
+            } catch (_) {
                 // iOS will throw an error if you try to set volume directly, so we catch it
-                audioRef.current.volume = targetVolume;
-            } catch (_) { }
+            }
 
-            // Critical for iOS: Explicitly set the muted property on the HTML element
+            // Critical for iOS: Explicitly set the native muted property 
             audioRef.current.muted = muted;
         }
-    }, [volume, muted, isPlaying]); // include isPlaying so volume is applied when playback starts
+    }, [volume, muted, isPlaying]);
 
     const handlePlay = async () => {
         if (!audioRef.current) return;
@@ -457,6 +474,7 @@ export default function ListenerPage() {
         red: "#f87171",
         redBg: "rgba(248, 113, 113, 0.1)",
         redBorder: "rgba(248, 113, 113, 0.25)",
+        orange: "#fb923c"
     };
 
     const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap";
@@ -906,8 +924,8 @@ export default function ListenerPage() {
                                     />
                                 </div>
 
-                                <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : COLORS.textSecondary, fontWeight: 500, minWidth: 38, textAlign: "right", flexShrink: 0 }}>
-                                    {muted ? "0%" : `${volume}%`}
+                                <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : volume > 70 ? COLORS.orange : COLORS.textSecondary, fontWeight: 500, minWidth: 42, textAlign: "right", flexShrink: 0 }}>
+                                    {muted ? "0%" : `${Math.round(Math.pow(volume / 100, 1.5) * 300)}%`}
                                 </span>
                             </div>
 
