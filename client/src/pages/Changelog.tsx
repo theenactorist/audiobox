@@ -26,6 +26,25 @@ const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wgh
 
 const releases = [
     {
+        date: "March 1, 2026",
+        title: "Native Android App, Mobile Web UI Redesign & Critical iOS Reliability",
+        icon: <IconRocket size={24} color={COLORS.green} />,
+        iconBg: COLORS.greenBg,
+        iconBorder: COLORS.greenBorder,
+        updates: [
+            { type: "feature", text: "AudioBox is now natively on Android! We launched the official Capacitor APK integration complete with lock-screen Audio Session persistence." },
+            { type: "feature", text: "Completely redesigned the Mobile Web Studio interface with sleek bottom-tab M3 Navigation and perfectly centered visualizers." },
+            { type: "fix", text: "Resolved a severe browser crash on Arc and Chromium browsers caused by overlapping audio recording sessions returning from the background." },
+            { type: "fix", text: "Fixed a major issue preventing broadcasters from using the 'Takeover Broadcast' feature when switching devices." },
+            { type: "fix", text: "Solved the 'Start Listening' bug on iOS Safari by strictly enforcing synchronous native audio context initialization." },
+            { type: "fix", text: "The volume slider on the iOS listener page now successfully controls the audio level natively." },
+            { type: "improvement", text: "Completely rebuilt the Studio audio visualizers to bypass React state, yielding extreme rendering performance and zero lag." },
+            { type: "fix", text: "Fixed an issue where the browser would silently ignore the selected microphone and fallback to the system default." },
+            { type: "improvement", text: "Simplified the Studio app by removing the 'Public Broadcast' toggle to focus entirely on seamless private link sharing." },
+            { type: "feature", text: "Replaced the dynamic 'Previous Broadcast' section on the Listen page with static podcast shortcut links." }
+        ]
+    },
+    {
         date: "February 28, 2026",
         title: "Studio Navigation & Under-the-Hood Polish",
         icon: <IconSparkles size={24} color={COLORS.orange} />,
