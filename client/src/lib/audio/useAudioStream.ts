@@ -40,7 +40,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
             // with audio only in the left channel, causing left-speaker-only playback.
             const rawStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    deviceId: deviceId ? { ideal: deviceId } : undefined,
+                    deviceId: deviceId ? { exact: deviceId } : undefined,
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: true,
@@ -145,7 +145,7 @@ export function useAudioStream(config: AudioStreamConfig = {}) {
         try {
             const constraints: MediaStreamConstraints = {
                 audio: {
-                    deviceId: { ideal: deviceId },
+                    deviceId: deviceId ? { exact: deviceId } : undefined,
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: true,
