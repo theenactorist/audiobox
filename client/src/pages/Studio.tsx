@@ -755,6 +755,15 @@ export default function StudioPage() {
                     if (recorderDead) {
                         console.log('[KeepAlive] MediaRecorder inactive, restarting...');
                         try {
+                            // C++ CRASH PREVENTION (Arc/Chromium): 
+                            // Ensure the old dormant MediaRecorder is completely unbound 
+                            // before instantiating a new one on the exact same stream tracks.
+                            if (mediaRecorderRef.current) {
+                                mediaRecorderRef.current.ondataavailable = null;
+                                mediaRecorderRef.current.onerror = null;
+                                try { mediaRecorderRef.current.stop(); } catch (e) { /* ignore if already stopped */ }
+                            }
+
                             const newRecorder = new MediaRecorder(activeStream, {
                                 mimeType: 'audio/webm;codecs=opus',
                             });
