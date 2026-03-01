@@ -293,7 +293,7 @@ export default function StudioPage() {
     const [validationErrors, setValidationErrors] = useState<{ title?: string, device?: string, description?: string }>({});
     const [isStopping, setIsStopping] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-    const [isPublic, setIsPublic] = useState(false);
+    const isPublic = true; // Always true now that the toggle is removed
     const [mobileTab, setMobileTab] = useState<'setup' | 'live' | 'history'>('setup');
 
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -1270,28 +1270,6 @@ export default function StudioPage() {
                                     </div>
                                 )}
 
-                                {!isMonitoring && (
-                                    <div>
-                                        <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "14px 16px" }}>
-                                            <div>
-                                                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, marginBottom: 2 }}>Public Broadcast</div>
-                                                <div style={{ fontSize: 12, color: COLORS.textMuted }}>{isPublic ? "Visible to everyone on the Listen page" : "Unlisted test stream (Hidden from Listen page)"}</div>
-                                            </div>
-                                            <div style={{ position: "relative", width: 44, height: 24, borderRadius: 12, background: isPublic ? COLORS.green : COLORS.border, transition: "background 0.2s" }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isPublic}
-                                                    onChange={(e) => {
-                                                        setIsPublic(e.target.checked);
-                                                        if (isLive) setHasUnsavedChanges(true);
-                                                    }}
-                                                    style={{ opacity: 0, width: "100%", height: "100%", position: "absolute", cursor: "pointer", zIndex: 2 }}
-                                                />
-                                                <div style={{ position: "absolute", top: 2, left: isPublic ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s cubic-bezier(0.4, 0, 0.2, 1)", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }} />
-                                            </div>
-                                        </label>
-                                    </div>
-                                )}
                             </div>
 
                             {/* Android-specific warning: OS kills microphone when Chrome is backgrounded */}
