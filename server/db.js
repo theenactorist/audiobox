@@ -58,7 +58,9 @@ try {
 
 // Seed admin account on startup
 const ADMIN_EMAIL = 'livestream.thenew@gmail.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'local_dev_only_password_change_me';
+// In production, fallback to the secure default. In local dev, use the placeholder.
+const isProd = process.env.NODE_ENV === 'production';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (isProd ? 'wearethenewvoiceAI09' : 'local_dev_only_password_change_me');
 
 (async () => {
     try {
