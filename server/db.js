@@ -58,7 +58,7 @@ try {
 
 // Seed admin account on startup
 const ADMIN_EMAIL = 'livestream.thenew@gmail.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'wearethenewvoiceAI09';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'local_dev_only_password_change_me';
 
 (async () => {
     try {

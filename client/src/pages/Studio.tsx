@@ -259,9 +259,9 @@ function VerticalFader({ isMuted, onMuteToggle, volume, onVolumeChange }: { isMu
     );
 }
 
-function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void, onCancel: () => void }) {
+function ConfirmModal({ onConfirm, onCancel, isLoading }: { onConfirm: () => void, onCancel: () => void, isLoading: boolean }) {
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={onCancel}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={!isLoading ? onCancel : undefined}>
             <div onClick={(e) => e.stopPropagation()} style={{ background: COLORS.surface, border: `1px solid ${COLORS.redBorder}`, borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", textAlign: "center" }}>
                 <div style={{ width: 48, height: 48, borderRadius: "50%", background: COLORS.redBg, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS.red} strokeWidth="2"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
@@ -269,8 +269,16 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void, onCancel
                 <h3 style={{ color: COLORS.text, fontSize: 18, fontWeight: 600, margin: "0 0 8px", fontFamily: "'DM Sans', sans-serif" }}>End this broadcast?</h3>
                 <p style={{ color: COLORS.textSecondary, fontSize: 14, margin: "0 0 24px", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>All active listeners will be disconnected immediately.</p>
                 <div style={{ display: "flex", gap: 12 }}>
-                    <button onClick={onCancel} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.textSecondary, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Keep streaming</button>
-                    <button onClick={onConfirm} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: COLORS.red, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>End stream</button>
+                    <button disabled={isLoading} onClick={onCancel} style={{ flex: 1, padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "transparent", color: isLoading ? COLORS.textMuted : COLORS.textSecondary, fontSize: 14, fontWeight: 500, cursor: isLoading ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                        Keep streaming
+                    </button>
+                    <button disabled={isLoading} onClick={onConfirm} style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: "12px 20px", borderRadius: 10, border: `1px solid ${COLORS.redBorder}`, background: COLORS.redBg, color: isLoading ? COLORS.textMuted : COLORS.red, fontSize: 14, fontWeight: 600, cursor: isLoading ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                        {isLoading ? (
+                            <svg className="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
+                                <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                            </svg>
+                        ) : "End stream"}
+                    </button>
                 </div>
             </div>
         </div>
@@ -1040,7 +1048,7 @@ export default function StudioPage() {
                 }
             `}</style>
 
-            {showEndConfirmation && <ConfirmModal onConfirm={handleStopStream} onCancel={() => setShowEndConfirmation(false)} />}
+            {showEndConfirmation && <ConfirmModal onConfirm={handleStopStream} onCancel={() => setShowEndConfirmation(false)} isLoading={isStopping} />}
 
             <div className="studio-root" style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", paddingTop: Capacitor.isNativePlatform() ? 'env(safe-area-inset-top, 32px)' : undefined }}>
 
