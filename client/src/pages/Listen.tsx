@@ -163,45 +163,44 @@ export default function ListenerPage() {
     }, []);
 
     // Setup Audio Context for Visualizer + GainNode for iOS volume control
-    useEffect(() => {
-        if (isPlaying && audioRef.current && !analyser) {
-            try {
-                if (!audioContextRef.current) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                    audioContextRef.current = new AudioContextClass();
-                }
-
-                const ctx = audioContextRef.current;
-
-                // Resume context if suspended (browser policy)
-                if (ctx.state === 'suspended') {
-                    ctx.resume();
-                }
-
-                if (!sourceRef.current) {
-                    const source = ctx.createMediaElementSource(audioRef.current);
-                    const newAnalyser = ctx.createAnalyser();
-                    newAnalyser.fftSize = 256;
-
-                    // Insert GainNode for programmatic volume control (iOS ignores audio.volume)
-                    const gainNode = ctx.createGain();
-                    gainNode.gain.value = muted ? 0 : volume / 100;
-                    gainNodeRef.current = gainNode;
-
-                    // Chain: source → gainNode → analyser → destination
-                    source.connect(gainNode);
-                    gainNode.connect(newAnalyser);
-                    newAnalyser.connect(ctx.destination);
-
-                    sourceRef.current = source;
-                    setAnalyser(newAnalyser);
-                }
-            } catch (err) {
-                console.warn('Audio visualization setup failed (likely CORS):', err);
+    const initWebAudio = () => {
+        if (!audioRef.current || analyser) return;
+        try {
+            if (!audioContextRef.current) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const AudioContextClass = window.AudioContext || (window as unknown as any).webkitAudioContext;
+                audioContextRef.current = new AudioContextClass();
             }
+
+            const ctx = audioContextRef.current;
+
+            // Resume context if suspended (browser policy)
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(e => console.warn("Failed to resume AudioContext", e));
+            }
+
+            if (!sourceRef.current) {
+                const source = ctx.createMediaElementSource(audioRef.current);
+                const newAnalyser = ctx.createAnalyser();
+                newAnalyser.fftSize = 256;
+
+                // Insert GainNode for programmatic volume control (iOS ignores audio.volume)
+                const gainNode = ctx.createGain();
+                gainNode.gain.value = muted ? 0 : volume / 100;
+                gainNodeRef.current = gainNode;
+
+                // Chain: source → gainNode → analyser → destination
+                source.connect(gainNode);
+                gainNode.connect(newAnalyser);
+                newAnalyser.connect(ctx.destination);
+
+                sourceRef.current = source;
+                setAnalyser(newAnalyser);
+            }
+        } catch (err) {
+            console.warn('Audio visualization setup failed (likely CORS):', err);
         }
-    }, [isPlaying]);
+    };
 
     // Track active listening status for broadcaster counts
     useEffect(() => {
@@ -368,13 +367,20 @@ export default function ListenerPage() {
     // Volume control — use GainNode for iOS compatibility, fallback to audio.volume
     useEffect(() => {
         const targetVolume = muted ? 0 : volume / 100;
-        // Use GainNode (works on iOS where audio.volume is read-only if Web Audio works)
+
+        // 1. GainNode (Works on iOS if Web Audio is active)
         if (gainNodeRef.current) {
             gainNodeRef.current.gain.value = targetVolume;
         }
-        // Also set audio.volume and natively mute as fallback for non-iOS browsers or if Web Audio fails
+
+        // 2. Native Audio Element (Essential fallback)
         if (audioRef.current) {
-            try { audioRef.current.volume = targetVolume; } catch (_) { /* iOS */ }
+            try {
+                // iOS will throw an error if you try to set volume directly, so we catch it
+                audioRef.current.volume = targetVolume;
+            } catch (_) { }
+
+            // Critical for iOS: Explicitly set the muted property on the HTML element
             audioRef.current.muted = muted;
         }
     }, [volume, muted, isPlaying]); // include isPlaying so volume is applied when playback starts
@@ -384,27 +390,44 @@ export default function ListenerPage() {
         setPlayLoading(true);
 
         try {
+            // CRITICAL iOS FIX: Initialize Web Audio API AudioContext synchronously 
+            // directly within the user interaction event loop before ANY await.
+            initWebAudio();
+
+            // CRITICAL iOS FIX: Initialize audio element synchronously *before* any await
+            // Provide an empty buffer or load command to unlock the element immediately
+            audioRef.current.play().catch(() => { });
+
             // Instruct HLS.js to start loading (if active)
             if (hlsRef.current) {
                 hlsRef.current.startLoad();
+
+                // Android Chrome sometimes needs explicit recovery if it's been idle
+                if (hlsRef.current.media && hlsRef.current.media.error) {
+                    hlsRef.current.recoverMediaError();
+                }
             }
 
             // Sync play initiation to satisfy iOS/Safari user interaction policies
             await audioRef.current.play();
             setIsPlaying(true);
+            setPlayLoading(false);
         } catch (error) {
             console.error("Play failed:", error);
+
             // On failure, wait a moment and try one more time as a fallback
             setTimeout(() => {
+                if (hlsRef.current) hlsRef.current.startLoad();
                 audioRef.current?.play()
-                    .then(() => setIsPlaying(true))
-                    .catch(err => console.error("Fallback play failed:", err))
-                    .finally(() => setPlayLoading(false));
+                    .then(() => {
+                        setIsPlaying(true);
+                        setPlayLoading(false);
+                    })
+                    .catch(err => {
+                        console.error("Fallback play failed:", err);
+                        setPlayLoading(false);
+                    });
             }, 1000);
-        } finally {
-            if (audioRef.current.readyState >= 1) {
-                setPlayLoading(false);
-            }
         }
     };
 
@@ -681,30 +704,57 @@ export default function ListenerPage() {
             <style>{`
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
                 
-                input[type="range"] {
+                /* Massive invisible touch area for volume slider */
+                .volume-slider-container {
+                    position: relative;
+                    flex: 1;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                }
+                
+                input[type="range"].volume-slider {
                     -webkit-appearance: none; appearance: none;
-                    height: 24px; /* Larger touch area */
+                    width: 100%;
+                    height: 100%; /* Fill container for touch area */
                     background: transparent;
                     outline: none; cursor: pointer;
                     margin: 0;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    z-index: 2;
                 }
-                input[type="range"]::-webkit-slider-runnable-track {
-                    width: 100%; height: 6px; border-radius: 3px;
+                
+                /* Visual Track */
+                .volume-track-visual {
+                    position: absolute;
+                    top: 50%;
+                    left: 0;
+                    right: 0;
+                    height: 6px;
+                    border-radius: 3px;
+                    transform: translateY(-50%);
                     background: var(--track-bg, ${COLORS.border});
+                    pointer-events: none;
+                    z-index: 1;
                 }
-                input[type="range"]::-webkit-slider-thumb {
+
+                input[type="range"].volume-slider::-webkit-slider-runnable-track {
+                    width: 100%; height: 100%; background: transparent; border: none;
+                }
+                input[type="range"].volume-slider::-webkit-slider-thumb {
                     -webkit-appearance: none; appearance: none;
-                    width: 18px; height: 18px; border-radius: 50%;
+                    width: 20px; height: 20px; border-radius: 50%;
                     background: ${COLORS.text}; border: 2px solid ${COLORS.surface};
                     cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-                    margin-top: -6px; /* Center thumb on track */
+                    margin-top: 6px; /* Align vertically in 32px tall input */
                 }
-                input[type="range"]::-moz-range-track {
-                    width: 100%; height: 6px; border-radius: 3px;
-                    background: var(--track-bg, ${COLORS.border});
+                input[type="range"].volume-slider::-moz-range-track {
+                    width: 100%; height: 100%; background: transparent; border: none;
                 }
-                input[type="range"]::-moz-range-thumb {
-                    width: 18px; height: 18px; border-radius: 50%;
+                input[type="range"].volume-slider::-moz-range-thumb {
+                    width: 20px; height: 20px; border-radius: 50%;
                     background: ${COLORS.text}; border: 2px solid ${COLORS.surface};
                     cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
                 }
@@ -824,19 +874,23 @@ export default function ListenerPage() {
                                     {muted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
                                 </button>
 
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={muted ? 0 : volume}
-                                    onChange={(e) => {
-                                        const val = Number(e.target.value);
-                                        setVolume(val);
-                                        if (val > 0 && muted) setMuted(false);
-                                        if (val === 0) setMuted(true);
-                                    }}
-                                    style={{ flex: 1, '--track-bg': `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` } as React.CSSProperties}
-                                />
+                                <div className="volume-slider-container">
+                                    <div className="volume-track-visual" style={{ '--track-bg': `linear-gradient(to right, ${muted ? COLORS.textMuted : COLORS.green} ${muted ? 0 : volume}%, ${COLORS.border} ${muted ? 0 : volume}%)` } as React.CSSProperties} />
+                                    <input
+                                        type="range"
+                                        className="volume-slider"
+                                        min="0"
+                                        max="100"
+                                        value={muted ? 0 : volume}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            setVolume(val);
+                                            if (val > 0 && muted) setMuted(false);
+                                            if (val === 0) setMuted(true);
+                                        }}
+                                        onTouchStart={(e) => e.stopPropagation()} // Prevent page scrolling while adjusting volume
+                                    />
+                                </div>
 
                                 <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: muted ? COLORS.red : COLORS.textSecondary, fontWeight: 500, minWidth: 38, textAlign: "right", flexShrink: 0 }}>
                                     {muted ? "0%" : `${volume}%`}
