@@ -444,58 +444,10 @@ export default function StudioPage() {
             });
 
             // Check for persisted stream state on connect
-            // Check for persisted stream state on connect
-            const savedState = localStorage.getItem('streamState');
-            if (savedState) {
-                try {
-                    const parsedState = JSON.parse(savedState);
-                    const { streamId: savedStreamId, title: savedTitle, description: savedDescription, startTime: savedStartTime } = parsedState;
-
-                    // Only resume if it's recent (e.g., within last hour) - optional check
-                    // For now, we trust the user wants to resume if state exists
-
-                    console.log('Found saved stream state, attempting to resume...');
-                    setStreamId(savedStreamId); // Set streamId from saved state
-                    setTitle(savedTitle);
-                    setDescription(savedDescription);
-                    setStartTime(new Date(savedStartTime));
-                    setIsLive(true);
-
-                    // Emit start-stream to resume server-side session
-                    if (socketRef.current) {
-                        socketRef.current.emit('start-stream', {
-                            streamId: savedStreamId,
-                            title: savedTitle,
-                            description: savedDescription,
-                            isPublic: parsedState.isPublic !== undefined ? parsedState.isPublic : true,
-                            userId: user?.id
-                        });
-                    }
-
-                    notifications.show({
-                        title: 'Session Resumed',
-                        message: 'Your previous broadcast session has been restored',
-                        color: 'blue',
-                    });
-                } catch (e) {
-                    console.error('Failed to parse saved stream state:', e);
-                    localStorage.removeItem('streamState'); // Clear corrupted state
-                }
-
-                // Re-acquire audio stream if needed
-                if (!stream && selectedDevice) {
-                    startStream(selectedDevice);
-                } else if (!stream) {
-                    // Try to get default device
-                    navigator.mediaDevices.getUserMedia({ audio: true }).then(() => {
-                        // We need to use the hook's startStream to ensure state is updated correctly
-                        // But since we can't call hook functions inside this callback easily without deps,
-                        // we rely on the fact that startStream will be called when selectedDevice is set
-                        // or we manually trigger it if we have the device ID.
-                        // Better approach: Just set isLive=true and let the effect below handle recorder restart
-                    }).catch(e => console.error("Failed to recover stream", e));
-                }
-            }
+            // AUTO-RESUME REMOVED: Auto-resuming from localStorage on connect
+            // instantly steals the broadcast socket from other active tabs/devices
+            // before `checkActiveStream` has a chance to mark this tab as a monitor.
+            // If the user wants to resume a crashed broadcast, they must click 'Go Live' again.
 
             // Reconnect logic: Re-announce stream if we were live before disconnect
             // CRITICAL: Do NOT re-announce if in monitoring mode!
@@ -619,29 +571,8 @@ export default function StudioPage() {
         };
     }, [user]); // Added user dependency to ensure we have userId for resumption
 
-    // Auto-resume recorder when stream becomes available and we are live
-    useEffect(() => {
-        if (isLive && stream && socketRef.current && !mediaRecorderRef.current) {
-            console.log('Resuming MediaRecorder...');
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm;codecs=opus',
-            });
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0 && socketRef.current) {
-                    event.data.arrayBuffer().then((buffer) => {
-                        socketRef.current!.emit('audio-chunk', {
-                            streamId,
-                            chunk: buffer
-                        });
-                    });
-                }
-            };
-
-            mediaRecorder.start(4000); // 4-second chunks align perfectly with FFmpeg's 4-second HLS segments
-            mediaRecorderRef.current = mediaRecorder;
-        }
-    }, [isLive, stream]);
+    // Auto-resume logic removed: handleStartBroadcast already creates the MediaRecorder.
+    // Having a useEffect create a second overlapping MediaRecorder causes fatal Chromium crashes.
 
     // Request wake lock to prevent device from sleeping while broadcasting
     useEffect(() => {
