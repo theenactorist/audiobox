@@ -572,28 +572,32 @@ export default function ListenerPage() {
 
     // Real Web Audio API visualizer using the 32 bars from the mock
     const MiniVisualizer = ({ active, muted, analyser }: { active: boolean, muted: boolean, analyser: AnalyserNode | null }) => {
-        const [bars, setBars] = useState<number[]>(Array(32).fill(0));
+        const barsRef = useRef<(HTMLDivElement | null)[]>([]);
         const animationRef = useRef<number>();
 
         useEffect(() => {
             if (!active || !analyser) {
-                setBars(Array(32).fill(0));
+                // Reset styles directly
+                barsRef.current.forEach(bar => {
+                    if (bar) {
+                        bar.style.height = '12%';
+                        bar.style.background = COLORS.border;
+                        bar.style.opacity = '0.3';
+                    }
+                });
                 if (animationRef.current) cancelAnimationFrame(animationRef.current);
                 return;
             }
 
             const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
 
             const update = () => {
                 analyser.getByteFrequencyData(dataArray);
 
                 const newBars = [];
 
-                // Logarithmic frequency mapping focusing on the lower 60% of bins (vocal range)
-                const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
-
                 for (let i = 0; i < 32; i++) {
-                    // Stretches low frequencies across more bars, compresses highs
                     const startRatio = Math.pow(i / 32, 2);
                     const endRatio = Math.pow((i + 1) / 32, 2);
 
@@ -619,7 +623,16 @@ export default function ListenerPage() {
                     newBars.push(percent);
                 }
 
-                setBars(newBars);
+                // Bypass React render entirely
+                newBars.forEach((h, i) => {
+                    const bar = barsRef.current[i];
+                    if (bar) {
+                        bar.style.height = `${h}%`;
+                        bar.style.background = `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`;
+                        bar.style.opacity = muted ? '0.25' : '0.8';
+                    }
+                });
+
                 animationRef.current = requestAnimationFrame(update);
             };
 
@@ -627,22 +640,21 @@ export default function ListenerPage() {
             return () => {
                 if (animationRef.current) cancelAnimationFrame(animationRef.current);
             };
-        }, [active, analyser]);
+        }, [active, analyser, muted]);
 
         return (
             <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 48 }}>
-                {bars.map((h, i) => (
+                {Array.from({ length: 32 }).map((_, i) => (
                     <div
                         key={i}
+                        ref={el => { barsRef.current[i] = el; }}
                         style={{
                             flex: 1,
-                            height: `${active ? h : 12}%`,
-                            background: active
-                                ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`
-                                : COLORS.border,
+                            height: '12%',
+                            background: COLORS.border,
                             borderRadius: 1.5,
                             transition: "height 0.05s ease",
-                            opacity: active ? (muted ? 0.25 : 0.8) : 0.3,
+                            opacity: 0.3,
                         }}
                     />
                 ))}

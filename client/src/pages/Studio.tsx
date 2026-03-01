@@ -39,32 +39,34 @@ const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wgh
 
 // Real Web Audio API visualizer using the 48 bars from the studio mock
 const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: AnalyserNode | null }) => {
-    const [bars, setBars] = useState<number[]>(Array(48).fill(0));
+    const barsRef = useRef<(HTMLDivElement | null)[]>([]);
     const animationRef = useRef<number>();
 
     useEffect(() => {
         if (!active || !analyser) {
-            setBars(Array(48).fill(0));
+            // Reset visually
+            barsRef.current.forEach(bar => {
+                if (bar) {
+                    bar.style.height = '8%';
+                    bar.style.background = COLORS.border;
+                    bar.style.opacity = '0.4';
+                    bar.style.transition = 'height 0.5s ease';
+                }
+            });
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
             return;
         }
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
 
         const update = () => {
             analyser.getByteFrequencyData(dataArray);
 
             const newBars = [];
 
-            // We only care about the lower half of frequencies (approx 0-11kHz) for human voice/music
-            // Use a logarithmic/exponential curve to map bins to bars, giving more detail to lower/mid frequencies
-            const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
-
             // Generate 24 bars for one half of the waveform
             for (let i = 0; i < 24; i++) {
-                // Logarithmic index mapping: i^2 / 24^2 * usefulBins
-                // This stretches out the lower bins (bass/vocals) across more bars, 
-                // and compresses the high frequency bins into fewer bars.
                 const startRatio = Math.pow(i / 24, 2);
                 const endRatio = Math.pow((i + 1) / 24, 2);
 
@@ -79,12 +81,9 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
                 const count = endIndex - startIndex;
                 const avg = sum / count;
 
-                // Make the UI much more sensitive/kinetic
-                // Map the 0-255 byte value to a 0-1 percentage, then apply a curve
                 const normalizedVal = avg / 255;
-                const kineticVal = Math.pow(normalizedVal, 1.2); // slight exponential curve for snap
+                const kineticVal = Math.pow(normalizedVal, 1.2);
 
-                // Scale to 8-100%
                 let percent = 8 + (kineticVal * 90);
                 percent = Math.max(8, Math.min(100, percent));
 
@@ -93,7 +92,20 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
 
             // Mirror the bars [High...Low, Low...High] so the loudest (voice) is in the center
             const mirroredBars = [...newBars.slice().reverse(), ...newBars];
-            setBars(mirroredBars);
+
+            // Bypass React render and update the DOM directly
+            mirroredBars.forEach((h, i) => {
+                const bar = barsRef.current[i];
+                if (bar) {
+                    bar.style.height = `${h}%`;
+                    bar.style.background = h > 75
+                        ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow})`
+                        : `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`;
+                    bar.style.opacity = '1';
+                    bar.style.transition = 'height 0.05s ease';
+                }
+            });
+
             animationRef.current = requestAnimationFrame(update);
         };
 
@@ -105,18 +117,17 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
 
     return (
         <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: "100%", padding: "12px 0" }}>
-            {bars.map((h, i) => (
+            {Array.from({ length: 48 }).map((_, i) => (
                 <div
                     key={i}
+                    ref={el => { barsRef.current[i] = el; }}
                     style={{
                         flex: 1,
-                        height: `${active ? h : 8}%`,
-                        background: active
-                            ? h > 75 ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow})` : `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`
-                            : COLORS.border,
+                        height: '8%',
+                        background: COLORS.border,
                         borderRadius: 2,
-                        transition: active ? "height 0.05s ease" : "height 0.5s ease",
-                        opacity: active ? 1 : 0.4,
+                        transition: "height 0.5s ease",
+                        opacity: 0.4,
                     }}
                 />
             ))}
