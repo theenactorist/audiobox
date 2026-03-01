@@ -11,11 +11,6 @@ interface WakeLockSentinel {
     release: () => Promise<void>;
 }
 
-interface LastPublicBroadcast {
-    title: string;
-    startTime: string; // ISO string
-}
-
 export default function ListenerPage() {
     const [activeStream, setActiveStream] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -25,7 +20,6 @@ export default function ListenerPage() {
     const [showInstallBanner, setShowInstallBanner] = useState(false);
     const [listenerCount, setListenerCount] = useState(0);
     const [expandDescription, setExpandDescription] = useState(false);
-    const [lastPublicBroadcast, setLastPublicBroadcast] = useState<LastPublicBroadcast | null>(null);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
     const [streamEnding, setStreamEnding] = useState(false); // Buffer period after stream ends
     const [playLoading, setPlayLoading] = useState(false); // Loading state for Start Listening button
@@ -113,19 +107,6 @@ export default function ListenerPage() {
                             joinedStreamRef.current = null;
                         }
                         setActiveStream(null);
-
-                        // Fetch last public broadcast for offline state
-                        fetch(`${baseUrl}/api/latest-public-broadcast`)
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.hasBroadcast) {
-                                    setLastPublicBroadcast({
-                                        title: data.title,
-                                        startTime: data.startTime
-                                    });
-                                }
-                            })
-                            .catch(err => console.error('Failed to fetch last public broadcast:', err));
                     }
                 } else {
                     setActiveStream(null);
@@ -536,40 +517,51 @@ export default function ListenerPage() {
                                     No one is live right now. Check back soon!
                                 </p>
 
-                                {/* Last broadcast info */}
-                                {lastPublicBroadcast && (
-                                    <div style={{
-                                        background: COLORS.bg, borderRadius: 12, padding: 18,
-                                        border: `1px solid ${COLORS.border}`, textAlign: "left",
-                                        marginBottom: 28,
-                                    }}>
-                                        <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-                                            Previous broadcast
-                                        </div>
-                                        <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, lineHeight: 1.4, marginBottom: 6 }}>
-                                            {lastPublicBroadcast.title}
-                                        </div>
-                                        <div style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 14 }}>
-                                            {new Date(lastPublicBroadcast.startTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                                        </div>
+                                {/* Catch up on previous broadcasts */}
+                                <div style={{
+                                    background: COLORS.bg, borderRadius: 12, padding: 18,
+                                    border: `1px solid ${COLORS.border}`, textAlign: "left",
+                                    marginBottom: 28,
+                                }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 16 }}>
+                                        Catch up on previous broadcasts
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                         <a
-                                            href="https://open.spotify.com/show/2Gv6dKj6o7zhOFrRosR4VH?si=3bfb72f34a214292"
+                                            href="https://open.spotify.com/show/2Gv6dKj6o7zhOFrRosR4VH?si=d3804278c1a14068"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             style={{
                                                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                                                padding: "10px 16px", borderRadius: 8,
+                                                padding: "12px 16px", borderRadius: 8,
                                                 background: "#1DB954", color: "#000", textDecoration: "none",
-                                                fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                                                fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
                                             }}
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                                                 <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
                                             </svg>
-                                            Catch the replay on Spotify
+                                            Listen on Spotify
+                                        </a>
+
+                                        <a
+                                            href="https://podcasts.apple.com/ng/podcast/the-new-church/id1543115706"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                                padding: "12px 16px", borderRadius: 8,
+                                                background: "#FA243C", color: "#FFF", textDecoration: "none",
+                                                fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                                            }}
+                                        >
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M16.326 12.19c-.015-2.607 2.131-3.868 2.227-3.924-1.216-1.776-3.109-2.016-3.791-2.05-1.616-.164-3.153.95-3.978.95-.824 0-2.112-.931-3.447-.905-1.745.025-3.354.962-4.254 2.532-1.815 3.149-.462 7.804 1.309 10.366 .865 1.254 1.884 2.661 3.251 2.613 1.314-.05 1.821-.845 3.407-.845 1.584 0 2.046.845 3.431.815 1.41-.03 2.29-.1295 3.125-2.515 .862-1.26 1.218-2.483 1.258-2.55-.029-.015-2.493-.956-2.538-4.488M15.485 5.586c.725-.877 1.213-2.097 1.08-3.313-1.045.042-2.311.696-3.064 1.602-.601.722-1.185 1.956-1.025 3.16 1.163.09 2.261-.555 3.009-1.449" />
+                                            </svg>
+                                            Listen on Apple Podcasts
                                         </a>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     </main>
