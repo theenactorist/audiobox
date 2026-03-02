@@ -613,6 +613,20 @@ export default function StudioPage() {
             return;
         }
 
+        // CRITICAL: Verify the socket is actually connected, not just that the object exists.
+        // If the host sat idle and the socket silently disconnected, the UI still looks normal
+        // but emitting events would go into the void — the host would think they're live but nobody hears them.
+        if (!socketRef.current.connected) {
+            console.error('Socket exists but is NOT connected');
+            notifications.show({
+                title: 'Connection Lost',
+                message: 'You\'re not connected to the server. Please refresh the page and try again.',
+                color: 'red',
+                autoClose: false,
+            });
+            return;
+        }
+
         try {
             // Native App Check: Request Foreground Service permissions (for notifications)
             if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {

@@ -444,6 +444,14 @@ io.on('connection', (socket) => {
         const { streamId, chunk } = data;
         const hlsStream = hlsStreams[streamId];
 
+        // CRITICAL FIX: Prevent duplicate audio echoes!
+        // If a host had multiple tabs open or "took over" their own broadcast from a new tab,
+        // the old backgrounded tab might still be sending audio chunks natively. 
+        // We MUST verify that ONLY the officially registered active socket is allowed to write to FFmpeg.
+        if (broadcasters[streamId] && broadcasters[streamId].socketId !== socket.id) {
+            return; // Silently drop rogue chunks from unauthorized or old tabs
+        }
+
         if (hlsStream && hlsStream.inputStream) {
             // Write chunk to FFmpeg input stream
             try {
