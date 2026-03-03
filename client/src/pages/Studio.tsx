@@ -729,9 +729,12 @@ export default function StudioPage() {
             mediaRecorder.start(4000); // 4-second chunks align perfectly with FFmpeg's 4-second HLS segments
             mediaRecorderRef.current = mediaRecorder;
 
-            // Activate iOS background keep-alive (Layers 1 & 2)
+            // Activate mobile background keep-alive (Layers 1 & 2)
+            // Only on mobile — on desktop it wastes CPU with silent audio loops
             // Must be called here inside the click handler for iOS autoplay policy
-            keepAlive.activate(stream);
+            if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                keepAlive.activate(stream);
+            }
 
             setIsLive(true);
             setMobileTab('live'); // Auto-navigate to live tab on mobile
@@ -955,27 +958,33 @@ export default function StudioPage() {
 
 
     // Setup Web Audio API Analyser for Visualizer when live
+    // PERF: Reuse the main audioContext from useAudioStream() instead of creating a separate one.
+    // Previously this created a new AudioContext every time the stream changed — a major leak.
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    const analyserSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     useEffect(() => {
-        if (!stream || isMonitoring) {
+        if (!stream || isMonitoring || !audioContext) {
+            if (analyserSourceRef.current) {
+                try { analyserSourceRef.current.disconnect(); } catch (e) { /* ignore */ }
+                analyserSourceRef.current = null;
+            }
             setAnalyser(null);
             return;
         }
 
         try {
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            const audioCtx = new AudioContext();
-            const source = audioCtx.createMediaStreamSource(stream);
-            const newAnalyser = audioCtx.createAnalyser();
-            newAnalyser.fftSize = 256;
+            const source = audioContext.createMediaStreamSource(stream);
+            const newAnalyser = audioContext.createAnalyser();
+            newAnalyser.fftSize = 64; // Minimal — we only need 8 bars (32 frequency bins)
             source.connect(newAnalyser);
+            analyserSourceRef.current = source;
             setAnalyser(newAnalyser);
 
             return () => {
                 try {
                     newAnalyser.disconnect();
                     source.disconnect();
-                    audioCtx.close();
+                    analyserSourceRef.current = null;
                 } catch (e) {
                     console.error("Cleanup error", e);
                 }
@@ -983,7 +992,7 @@ export default function StudioPage() {
         } catch (e) {
             console.error("Visualizer context error", e);
         }
-    }, [stream, isMonitoring]);
+    }, [stream, isMonitoring, audioContext]);
 
     // Handle copying the listener URL
     const handleCopyListenerLink = async () => {
