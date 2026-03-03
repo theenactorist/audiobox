@@ -37,87 +37,55 @@ const COLORS = {
 
 const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap";
 
-// Real Web Audio API visualizer using the 48 bars from the studio mock
+// Lightweight audio feedback indicator — 8 bars at ~7fps, CSS transitions handle smoothness
 const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: AnalyserNode | null }) => {
     const barsRef = useRef<(HTMLDivElement | null)[]>([]);
-    const animationRef = useRef<number>();
+    const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
     useEffect(() => {
         if (!active || !analyser) {
-            // Reset visually
             barsRef.current.forEach(bar => {
                 if (bar) {
                     bar.style.height = '8%';
                     bar.style.background = COLORS.border;
                     bar.style.opacity = '0.4';
-                    bar.style.transition = 'height 0.5s ease';
                 }
             });
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            if (intervalRef.current) clearInterval(intervalRef.current);
             return;
         }
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        const usefulBins = Math.floor(analyser.frequencyBinCount * 0.6);
+        const barCount = 8;
 
-        const update = () => {
+        intervalRef.current = setInterval(() => {
             analyser.getByteFrequencyData(dataArray);
 
-            const newBars = [];
-
-            // Generate 24 bars for one half of the waveform
-            for (let i = 0; i < 24; i++) {
-                const startRatio = Math.pow(i / 24, 2);
-                const endRatio = Math.pow((i + 1) / 24, 2);
-
-                const startIndex = Math.floor(startRatio * usefulBins);
-                let endIndex = Math.floor(endRatio * usefulBins);
-                if (endIndex <= startIndex) endIndex = startIndex + 1;
-
-                let sum = 0;
-                for (let j = startIndex; j < endIndex; j++) {
-                    sum += dataArray[j] || 0;
-                }
-                const count = endIndex - startIndex;
-                const avg = sum / count;
-
-                const normalizedVal = avg / 255;
-                const kineticVal = Math.pow(normalizedVal, 1.2);
-
-                let percent = 8 + (kineticVal * 90);
-                percent = Math.max(8, Math.min(100, percent));
-
-                newBars.push(percent);
-            }
-
-            // Mirror the bars [High...Low, Low...High] so the loudest (voice) is in the center
-            const mirroredBars = [...newBars.slice().reverse(), ...newBars];
-
-            // Bypass React render and update the DOM directly
-            mirroredBars.forEach((h, i) => {
+            // Sample 8 evenly-spaced frequency bands from the useful range
+            const usefulBins = Math.floor(analyser.frequencyBinCount * 0.5);
+            for (let i = 0; i < barCount; i++) {
+                const idx = Math.floor((i / barCount) * usefulBins);
+                const val = dataArray[idx] / 255;
+                const pct = 8 + val * 90;
                 const bar = barsRef.current[i];
                 if (bar) {
-                    bar.style.height = `${h}%`;
-                    bar.style.background = h > 75
+                    bar.style.height = `${pct}%`;
+                    bar.style.background = pct > 75
                         ? `linear-gradient(to top, ${COLORS.green}, ${COLORS.yellow})`
                         : `linear-gradient(to top, ${COLORS.green}, ${COLORS.greenDim})`;
                     bar.style.opacity = '1';
-                    bar.style.transition = 'height 0.05s ease';
                 }
-            });
+            }
+        }, 150); // ~7fps — CSS transitions interpolate between frames
 
-            animationRef.current = requestAnimationFrame(update);
-        };
-
-        update();
         return () => {
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            if (intervalRef.current) clearInterval(intervalRef.current);
         };
     }, [active, analyser]);
 
     return (
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: "100%", padding: "12px 0" }}>
-            {Array.from({ length: 48 }).map((_, i) => (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: "100%", padding: "12px 0" }}>
+            {Array.from({ length: 8 }).map((_, i) => (
                 <div
                     key={i}
                     ref={el => { barsRef.current[i] = el; }}
@@ -125,8 +93,8 @@ const StudioVisualizer = ({ active, analyser }: { active: boolean, analyser: Ana
                         flex: 1,
                         height: '8%',
                         background: COLORS.border,
-                        borderRadius: 2,
-                        transition: "height 0.5s ease",
+                        borderRadius: 3,
+                        transition: "height 0.15s ease-out",
                         opacity: 0.4,
                     }}
                 />
