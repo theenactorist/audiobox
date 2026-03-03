@@ -887,6 +887,22 @@ export default function StudioPage() {
         // Immediately update dashboard to show stream has ended (no 16s wait for UI)
         setIsLive(false);
 
+        // CRITICAL: Stop the MediaRecorder IMMEDIATELY to prevent ghost audio chunks.
+        // Previously this was inside the 16s setTimeout, causing chunks to keep flowing
+        // to the server after end-stream, which triggered a failed FFmpeg re-init.
+        if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.ondataavailable = null;
+            mediaRecorderRef.current.onerror = null;
+            try { mediaRecorderRef.current.stop(); } catch (e) { /* ignore if already stopped */ }
+            mediaRecorderRef.current = null;
+        }
+
+        // Deactivate iOS background keep-alive immediately
+        keepAlive.deactivate();
+
+        // Delay the server-side end-stream for the listener grace period.
+        // The server will wait another 25s before emitting stream-ended to listeners,
+        // giving them time to hear the final buffered segments.
         setTimeout(() => {
             setIsMonitoring(false);
             setMobileTab('setup');
@@ -895,17 +911,9 @@ export default function StudioPage() {
             setShowEndConfirmation(false);
             setHasUnsavedChanges(false);
 
-            if (mediaRecorderRef.current) {
-                mediaRecorderRef.current.stop();
-                mediaRecorderRef.current = null;
-            }
-
             if (socketRef.current) {
                 socketRef.current.emit('end-stream', { streamId, userId: user?.id });
             }
-
-            // Deactivate iOS background keep-alive
-            keepAlive.deactivate();
 
             // Clear localStorage
             localStorage.removeItem('streamState');
