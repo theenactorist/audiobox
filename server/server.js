@@ -450,6 +450,20 @@ io.on('connection', (socket) => {
             console.log(`Cleared disconnect timeout for ${streamId} (takeover)`);
         }
 
+        // CRITICAL: Kill old FFmpeg so the new host's first chunk triggers lazy init
+        // with a fresh EBML header. Without this, chunks go to the old FFmpeg which
+        // can't parse a second EBML header, and stream-restarted never fires.
+        if (hlsStreams[streamId]) {
+            console.log(`Killing FFmpeg for ${streamId} (takeover) — will restart lazily on first chunk from new host`);
+            try {
+                hlsStreams[streamId].inputStream.end();
+                hlsStreams[streamId].ffmpegProcess.kill('SIGINT');
+            } catch (e) {
+                console.error(`Error killing FFmpeg during takeover for ${streamId}:`, e);
+            }
+            delete hlsStreams[streamId];
+        }
+
         // Clear pending chunks so new device can start with fresh EBML header
         pendingChunks[streamId] = [];
 
