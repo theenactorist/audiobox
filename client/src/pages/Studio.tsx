@@ -533,9 +533,39 @@ export default function StudioPage() {
             setIsMonitoring(false);
             setIsLive(true);
             setStartTime(new Date(data.startTime));
+
+            // CRITICAL: After takeover, auto-start capturing audio if mic is already available.
+            // Without this, FFmpeg receives no new chunks and listeners hear stale audio on loop.
+            if (stream && socketRef.current) {
+                // Clean up any old recorder first
+                if (mediaRecorderRef.current) {
+                    mediaRecorderRef.current.ondataavailable = null;
+                    mediaRecorderRef.current.onerror = null;
+                    try { mediaRecorderRef.current.stop(); } catch (e) { /* ignore if already stopped */ }
+                }
+                const newRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus',
+                });
+                newRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0 && socketRef.current) {
+                        event.data.arrayBuffer().then((buffer) => {
+                            socketRef.current!.emit('audio-chunk', {
+                                streamId: streamIdRef.current,
+                                chunk: buffer
+                            });
+                        });
+                    }
+                };
+                newRecorder.start(4000);
+                mediaRecorderRef.current = newRecorder;
+                console.log('MediaRecorder auto-started after takeover');
+            }
+
             notifications.show({
                 title: 'Broadcasting',
-                message: 'You are now the active broadcaster. Select a microphone to start sending audio.',
+                message: stream
+                    ? 'You are now the active broadcaster. Audio capture has resumed.'
+                    : 'You are now the active broadcaster. Select a microphone to start sending audio.',
                 color: 'green',
                 icon: <IconMicrophone size={16} />,
                 autoClose: 5000,

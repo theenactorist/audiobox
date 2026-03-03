@@ -425,6 +425,14 @@ io.on('connection', (socket) => {
         broadcasters[streamId].socketId = socket.id;
         socket.join(streamId);
 
+        // CRITICAL: Cancel any pending disconnect grace period timer.
+        // Without this, a crash → takeover will still kill the stream when the old timer fires.
+        if (disconnectTimeouts[streamId]) {
+            clearTimeout(disconnectTimeouts[streamId]);
+            delete disconnectTimeouts[streamId];
+            console.log(`Cleared disconnect timeout for ${streamId} (takeover)`);
+        }
+
         // Clear pending chunks so new device can start with fresh EBML header
         pendingChunks[streamId] = [];
 
