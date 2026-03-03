@@ -601,8 +601,50 @@ export default function StudioPage() {
         };
     }, [user]); // Added user dependency to ensure we have userId for resumption
 
-    // Auto-resume logic removed: handleStartBroadcast already creates the MediaRecorder.
-    // Having a useEffect create a second overlapping MediaRecorder causes fatal Chromium crashes.
+    // Auto-create MediaRecorder when mic stream becomes available after a takeover.
+    // After a full browser crash: takeover-success fires with stream=null (no mic yet),
+    // then the host selects a mic → stream gets set. But the Go Live button is hidden
+    // because isLive=true. This effect bridges that gap.
+    useEffect(() => {
+        if (isLive && !isMonitoring && stream && !mediaRecorderRef.current && socketRef.current) {
+            console.log('[Takeover Recovery] Stream available + no recorder → auto-creating MediaRecorder');
+            const newRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus',
+            });
+            newRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0 && socketRef.current) {
+                    event.data.arrayBuffer().then((buffer) => {
+                        socketRef.current!.emit('audio-chunk', {
+                            streamId: streamIdRef.current,
+                            chunk: buffer
+                        });
+                    });
+                }
+            };
+            newRecorder.onerror = (error) => {
+                console.error('MediaRecorder error:', error);
+            };
+            newRecorder.start(4000);
+            mediaRecorderRef.current = newRecorder;
+
+            // Also re-announce the stream to attach the new socket as the active broadcaster
+            socketRef.current.emit('start-stream', {
+                streamId: streamIdRef.current,
+                title: titleRef.current,
+                description: descriptionRef.current,
+                isPublic: isPublic,
+                userId: user?.id
+            });
+
+            notifications.show({
+                title: 'Audio Resumed',
+                message: 'Microphone connected — your broadcast audio is now live.',
+                color: 'green',
+                icon: <IconMicrophone size={16} />,
+                autoClose: 3000,
+            });
+        }
+    }, [stream, isLive, isMonitoring]);
 
     // Request wake lock to prevent device from sleeping while broadcasting
     useEffect(() => {
