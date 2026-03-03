@@ -200,6 +200,7 @@ const io = new Server(httpServer, {
 const broadcasters = {}; // streamId -> { socketId, startTime, title, description, peakListeners, currentListeners, userId, isPublic }
 const hlsStreams = {}; // streamId -> { ffmpegProcess, inputStream }
 const disconnectTimeouts = {}; // streamId -> timeoutId
+const gracePeriodTimeouts = {}; // streamId -> timeoutId for end-stream grace period
 const pendingChunks = {}; // streamId -> [Buffer]
 const streamListeners = {}; // streamId -> Set<socketId> — tracks unique listeners
 const socketStreams = {}; // socketId -> Set<streamId> — tracks which streams a socket joined
@@ -374,6 +375,14 @@ io.on('connection', (socket) => {
                 console.log(`Cleared disconnect timeout for ${streamId}`);
             }
 
+            // CRITICAL: Clear any stale grace period timer from a previous end-stream.
+            // Without this, going live again within 25s fires stream-ended into the room.
+            if (gracePeriodTimeouts[streamId]) {
+                clearTimeout(gracePeriodTimeouts[streamId]);
+                delete gracePeriodTimeouts[streamId];
+                console.log(`Cleared stale end-stream grace period for ${streamId}`);
+            }
+
             // Update broadcaster socket ID
             broadcasters[streamId].socketId = socket.id;
             socket.join(streamId);
@@ -398,6 +407,12 @@ io.on('connection', (socket) => {
         }
 
         // New stream — register broadcaster
+        // CRITICAL: Clear any stale grace period timer from a previous end-stream on this streamId.
+        if (gracePeriodTimeouts[streamId]) {
+            clearTimeout(gracePeriodTimeouts[streamId]);
+            delete gracePeriodTimeouts[streamId];
+            console.log(`Cleared stale end-stream grace period for ${streamId} (new stream)`);
+        }
         broadcasters[streamId] = {
             socketId: socket.id,
             startTime: new Date().toISOString(),
@@ -646,9 +661,11 @@ io.on('connection', (socket) => {
             const GRACE_PERIOD_MS = 25000; // 25 seconds
             console.log(`Stream ${streamId} ending in ${GRACE_PERIOD_MS / 1000}s (grace period for listeners)...`);
 
-            setTimeout(() => {
+            // Store the timer so start-stream can cancel it if host re-goes live within 25s
+            gracePeriodTimeouts[streamId] = setTimeout(() => {
                 io.to(streamId).emit('stream-ended');
                 delete streamListeners[streamId];
+                delete gracePeriodTimeouts[streamId];
                 console.log(`Stream ended (after grace period): ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
             }, GRACE_PERIOD_MS);
         }
