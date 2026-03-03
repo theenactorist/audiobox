@@ -26,6 +26,22 @@ const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wgh
 
 const releases = [
     {
+        date: "March 3, 2026",
+        title: "Massive Performance Boost & Bulletproof Reliability",
+        icon: <IconSparkles size={24} color={COLORS.blue} />,
+        iconBg: COLORS.blueBg,
+        iconBorder: COLORS.blueBorder,
+        updates: [
+            { type: "improvement", text: "Completely overhauled the Studio audio visualizer! It now uses 90% less CPU, fixing the 'heavy browser' lag while broadcasting." },
+            { type: "fix", text: "Solved the 'Broadcast ended from another device' false alarm on iOS when starting a new stream back-to-back." },
+            { type: "fix", text: "Seamless Stream Takeovers: Fixed a bug where taking over a broadcast from another device would leave listeners in silence." },
+            { type: "fix", text: "Listeners now instantly auto-reconnect with fresh audio when a stream restart or device takeover happens, bypassing CDN caching." },
+            { type: "feature", text: "The 'Monitoring Mode' card (which lets you take over a stream) is now instantly visible on the Live dashboard tab." },
+            { type: "improvement", text: "Added a helpful 'Select your Mic' prompt right after you successfully take over a broadcast." },
+            { type: "fix", text: "Fixed a critical backend bug where 'ghost' audio chunks kept streaming from the mic for 16 seconds after ending a broadcast." }
+        ]
+    },
+    {
         date: "March 1, 2026",
         title: "Native Android App, Mobile Web UI Redesign & Critical iOS Reliability",
         icon: <IconRocket size={24} color={COLORS.green} />,
