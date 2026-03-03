@@ -341,6 +341,14 @@ function initFFmpeg(streamId) {
         hlsStreams[streamId] = entry;
 
         console.log(`HLS transcoding initialized for ${streamId}`);
+
+        // Notify all listeners that the stream has restarted so they auto-reload HLS.
+        // Delay by 8 seconds to let FFmpeg generate the first HLS segment.
+        setTimeout(() => {
+            io.to(streamId).emit('stream-restarted', { streamId });
+            console.log(`Emitted stream-restarted to listeners of ${streamId}`);
+        }, 8000);
+
         return entry;
     } catch (err) {
         console.error(`CRITICAL ERROR initializing FFmpeg for ${streamId}:`, err);

@@ -73,6 +73,39 @@ export default function ListenerPage() {
             setListenerCount(data.count);
         });
 
+        // Auto-reconnect when stream restarts (crash recovery / takeover)
+        // The server emits this after FFmpeg re-initializes and generates new HLS segments
+        socket.on('stream-restarted', () => {
+            console.log('Stream restarted — reloading HLS source');
+            if (hlsRef.current && audioRef.current) {
+                const baseUrl = getServerUrl();
+                // Re-fetch the active stream URL and reload
+                fetch(`${baseUrl}/api/active-streams`)
+                    .then(res => res.json())
+                    .then(streams => {
+                        if (streams.length > 0) {
+                            const hlsUrl = streams[0].hlsUrl.startsWith('http')
+                                ? streams[0].hlsUrl
+                                : `${baseUrl}${streams[0].hlsUrl}`;
+                            console.log('Reloading HLS from:', hlsUrl);
+                            hlsRef.current?.loadSource(hlsUrl);
+                            hlsRef.current?.startLoad();
+                        }
+                    })
+                    .catch(err => console.error('Failed to reload stream:', err));
+            } else if (audioRef.current && audioRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS (Safari/iOS) — force reload by resetting src
+                const currentSrc = audioRef.current.src;
+                audioRef.current.src = '';
+                setTimeout(() => {
+                    if (audioRef.current) {
+                        audioRef.current.src = currentSrc;
+                        audioRef.current.play().catch(() => { });
+                    }
+                }, 500);
+            }
+        });
+
         const checkActiveStreams = async () => {
             try {
                 const response = await fetch(`${baseUrl}/api/active-streams`);
