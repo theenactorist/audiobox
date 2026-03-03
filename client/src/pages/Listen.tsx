@@ -22,6 +22,7 @@ export default function ListenerPage() {
     const [expandDescription, setExpandDescription] = useState(false);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
     const [streamEnding, setStreamEnding] = useState(false); // Buffer period after stream ends
+    const [hlsVersion, setHlsVersion] = useState(0); // Incremented on stream-restarted to force HLS.js full recreate
     const [playLoading, setPlayLoading] = useState(false); // Loading state for Start Listening button
     const hasListenedRef = useRef(false);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -74,36 +75,12 @@ export default function ListenerPage() {
         });
 
         // Auto-reconnect when stream restarts (crash recovery / takeover)
-        // The server emits this after FFmpeg re-initializes and generates new HLS segments
+        // Incrementing hlsVersion triggers the HLS useEffect to fully destroy
+        // and recreate HLS.js with a cache-busting URL. This is more reliable
+        // than calling loadSource() on a degraded HLS instance.
         socket.on('stream-restarted', () => {
-            console.log('Stream restarted — reloading HLS source');
-            if (hlsRef.current && audioRef.current) {
-                const baseUrl = getServerUrl();
-                // Re-fetch the active stream URL and reload
-                fetch(`${baseUrl}/api/active-streams`)
-                    .then(res => res.json())
-                    .then(streams => {
-                        if (streams.length > 0) {
-                            const hlsUrl = streams[0].hlsUrl.startsWith('http')
-                                ? streams[0].hlsUrl
-                                : `${baseUrl}${streams[0].hlsUrl}`;
-                            console.log('Reloading HLS from:', hlsUrl);
-                            hlsRef.current?.loadSource(hlsUrl);
-                            hlsRef.current?.startLoad();
-                        }
-                    })
-                    .catch(err => console.error('Failed to reload stream:', err));
-            } else if (audioRef.current && audioRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-                // Native HLS (Safari/iOS) — force reload by resetting src
-                const currentSrc = audioRef.current.src;
-                audioRef.current.src = '';
-                setTimeout(() => {
-                    if (audioRef.current) {
-                        audioRef.current.src = currentSrc;
-                        audioRef.current.play().catch(() => { });
-                    }
-                }, 500);
-            }
+            console.log('Stream restarted — triggering full HLS recreate');
+            setHlsVersion(v => v + 1);
         });
 
         const checkActiveStreams = async () => {
@@ -266,7 +243,12 @@ export default function ListenerPage() {
         }
     }, [activeStream, isPlaying]);
 
-    // Setup HLS player
+    // Setup HLS player — fully recreated when hlsVersion changes (stream-restarted)
+    const wasPlayingRef = useRef(false);
+    useEffect(() => {
+        wasPlayingRef.current = isPlaying;
+    }, [isPlaying]);
+
     useEffect(() => {
         if (!activeStream || !audioRef.current) {
             if (hlsRef.current) {
@@ -277,11 +259,25 @@ export default function ListenerPage() {
         }
 
         const baseUrl = getServerUrl();
-        const hlsUrl = activeStream.hlsUrl.startsWith('http')
+        let hlsUrl = activeStream.hlsUrl.startsWith('http')
             ? activeStream.hlsUrl
             : `${baseUrl}${activeStream.hlsUrl}`;
 
-        console.log('Loading HLS stream:', hlsUrl);
+        // Cache-busting: append version param to bypass CDN serving stale playlist
+        // This is critical after takeover — without it, the CDN may keep serving
+        // the old frozen playlist for minutes even though the server has a fresh one.
+        if (hlsVersion > 0) {
+            const separator = hlsUrl.includes('?') ? '&' : '?';
+            hlsUrl += `${separator}_v=${Date.now()}`;
+        }
+
+        console.log(`Loading HLS stream (v${hlsVersion}):`, hlsUrl);
+
+        // Fully destroy previous instance before creating new one
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+        }
 
         if (Hls.isSupported()) {
             const hls = new Hls({
@@ -308,8 +304,11 @@ export default function ListenerPage() {
 
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 console.log('Manifest parsed, ready to play');
-                // Removed autoplay to require user interaction
-                // audioRef.current?.play().catch(e => console.log('Autoplay prevented:', e));
+                // Auto-play if this is a reconnect (hlsVersion > 0) and user was already listening
+                if (hlsVersion > 0 && wasPlayingRef.current && audioRef.current) {
+                    console.log('Auto-resuming playback after stream restart');
+                    audioRef.current.play().catch(e => console.log('Auto-resume prevented:', e));
+                }
             });
 
             hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -326,6 +325,7 @@ export default function ListenerPage() {
                         default:
                             console.error('Fatal HLS error, destroying:', data);
                             hls.destroy();
+                            hlsRef.current = null;
                             break;
                     }
                 }
@@ -334,7 +334,11 @@ export default function ListenerPage() {
             hlsRef.current = hls;
         } else if (audioRef.current.canPlayType('application/vnd.apple.mpegurl')) {
             // Native HLS support (Safari/iOS)
+            // Cache-bust for native HLS too
             audioRef.current.src = hlsUrl;
+            if (hlsVersion > 0 && wasPlayingRef.current) {
+                audioRef.current.play().catch(() => { });
+            }
         }
 
         return () => {
@@ -343,7 +347,7 @@ export default function ListenerPage() {
                 hlsRef.current = null;
             }
         };
-    }, [activeStream?.hlsUrl]);
+    }, [activeStream?.hlsUrl, hlsVersion]);
 
     // Media Session API
     useEffect(() => {
