@@ -290,6 +290,7 @@ export default function StudioPage() {
 
     const isMobile = useMediaQuery('(max-width: 768px)');
     const [isMonitoring, setIsMonitoring] = useState(false); // Browser B: monitoring only, no audio pipeline
+    const [needsMicSelect, setNeedsMicSelect] = useState(false); // After takeover, prompt host to select mic
 
     const [isMounted, setIsMounted] = useState(false);
 
@@ -506,6 +507,10 @@ export default function StudioPage() {
             setIsMonitoring(false);
             setIsLive(true);
             setStartTime(new Date(data.startTime));
+            // If mic is not already active, prompt the host to select one
+            if (!stream) {
+                setNeedsMicSelect(true);
+            }
 
             // CRITICAL: After takeover, auto-start capturing audio if mic is already available.
             // Without this, FFmpeg receives no new chunks and listeners hear stale audio on loop.
@@ -1271,6 +1276,7 @@ export default function StudioPage() {
                                                             setSelectedDevice(e.target.value);
                                                             if (e.target.value) startStream(e.target.value);
                                                             if (validationErrors.device) setValidationErrors(prev => ({ ...prev, device: undefined }));
+                                                            setNeedsMicSelect(false);
                                                         }}
                                                         style={{
                                                             width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${validationErrors.device ? COLORS.red : COLORS.border}`,
@@ -1288,6 +1294,24 @@ export default function StudioPage() {
                                                     </svg>
                                                 </div>
                                                 {validationErrors.device && <div style={{ color: COLORS.red, fontSize: 12, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>{validationErrors.device}</div>}
+                                                {needsMicSelect && !selectedDevice && (
+                                                    <div style={{
+                                                        marginTop: 8,
+                                                        padding: '10px 12px',
+                                                        borderRadius: 8,
+                                                        background: 'rgba(255, 193, 7, 0.1)',
+                                                        border: '1px solid rgba(255, 193, 7, 0.3)',
+                                                        fontSize: 13,
+                                                        color: '#ffc107',
+                                                        lineHeight: 1.5,
+                                                        display: 'flex',
+                                                        alignItems: 'flex-start',
+                                                        gap: 8,
+                                                    }}>
+                                                        <span style={{ fontSize: 16, lineHeight: '20px' }}>🎙️</span>
+                                                        <span>You've taken over the broadcast. <strong>Select your microphone above</strong> to start sending audio to listeners.</span>
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </div>
