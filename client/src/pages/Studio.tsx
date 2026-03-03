@@ -1571,6 +1571,48 @@ export default function StudioPage() {
                                                             </div>
                                                         </div>
 
+                                                        {/* Monitoring Mode Card (also shown on Setup tab) */}
+                                                        {isMonitoring && (
+                                                            <div style={{ background: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)", padding: 16, borderRadius: 10 }}>
+                                                                <div style={{ fontSize: 14, fontWeight: 600, color: "#60a5fa", display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+                                                                    Monitoring Mode
+                                                                </div>
+                                                                <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5, marginBottom: 12 }}>
+                                                                    This stream is broadcasting from another device. You can monitor stats, end the stream, or take over broadcasting from here.
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (socketRef.current && socketRef.current.connected) {
+                                                                            socketRef.current.emit('takeover-broadcast', {
+                                                                                streamId: streamIdRef.current,
+                                                                                userId: user?.id
+                                                                            });
+                                                                        } else {
+                                                                            notifications.show({
+                                                                                title: 'Not Connected',
+                                                                                message: 'Cannot take over: not connected to the server. Please refresh.',
+                                                                                color: 'red',
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    style={{
+                                                                        width: "100%", padding: "12px 16px", borderRadius: 10,
+                                                                        border: `1px solid ${COLORS.green}`,
+                                                                        background: "rgba(52, 211, 153, 0.1)", color: COLORS.green,
+                                                                        fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                                                                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                                                        transition: "background 0.2s"
+                                                                    }}
+                                                                    onMouseOver={(e) => e.currentTarget.style.background = "rgba(52, 211, 153, 0.15)"}
+                                                                    onMouseOut={(e) => e.currentTarget.style.background = "rgba(52, 211, 153, 0.1)"}
+                                                                >
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
+                                                                    Take over broadcast
+                                                                </button>
+                                                            </div>
+                                                        )}
+
                                                         {/* Audio Monitor Layout */}
                                                         <div style={{ background: COLORS.surface, borderRadius: 16, border: `1px solid ${COLORS.borderLight}`, padding: 20 }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
