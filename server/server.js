@@ -371,11 +371,20 @@ io.on('connection', (socket) => {
                 .on('error', (err, stdout, stderr) => {
                     console.error(`FFmpeg error for ${streamId}:`, err.message);
                     console.error(`FFmpeg stderr:`, stderr);
-                    delete hlsStreams[streamId];
+                    // RACE CONDITION FIX: Only clean up if THIS ffmpeg instance is still the active one.
+                    // When we restart FFmpeg (crash recovery), the old process fires on('error') async
+                    // AFTER the new process has already been stored in hlsStreams[streamId].
+                    // Without this check, the old callback deletes the new process's reference,
+                    // causing all new audio chunks to buffer forever with "waiting for FFmpeg".
+                    if (hlsStreams[streamId] && hlsStreams[streamId].ffmpegProcess === ffmpegCommand) {
+                        delete hlsStreams[streamId];
+                    }
                 })
                 .on('end', () => {
                     console.log(`FFmpeg ended for ${streamId}`);
-                    delete hlsStreams[streamId];
+                    if (hlsStreams[streamId] && hlsStreams[streamId].ffmpegProcess === ffmpegCommand) {
+                        delete hlsStreams[streamId];
+                    }
                 });
 
             console.log(`Attempting to run FFmpeg command for ${streamId}...`);
