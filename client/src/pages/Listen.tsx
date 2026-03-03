@@ -290,13 +290,15 @@ export default function ListenerPage() {
                 lowLatencyMode: false,
                 backBufferLength: 90,
                 maxBufferLength: 60,
-                liveSyncDurationCount: 3, // Reduced from 4 to lower latency and prevent segment-boundary pauses
+                liveSyncDurationCount: 2, // Start playing with just 2 segments (8s) — helps after FFmpeg restart
                 liveMaxLatencyDurationCount: 10,
                 liveDurationInfinity: true, // Prevents HLS.js from trimming the live edge too aggressively
                 manifestLoadingTimeOut: 10000,
-                manifestLoadingMaxRetry: 10,
+                manifestLoadingMaxRetry: 30, // Retry aggressively when playlist is sparse (FFmpeg just started)
+                manifestLoadingRetryDelay: 2000, // Wait 2s between manifest retries
                 levelLoadingTimeOut: 10000,
-                levelLoadingMaxRetry: 10,
+                levelLoadingMaxRetry: 30,
+                levelLoadingRetryDelay: 2000,
                 fragLoadingTimeOut: 10000,
                 fragLoadingMaxRetry: 10,
             });
