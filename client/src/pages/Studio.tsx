@@ -291,6 +291,11 @@ function ConfirmModal({ onConfirm, onCancel, isLoading }: { onConfirm: () => voi
                         ) : "End stream"}
                     </button>
                 </div>
+                {isLoading && (
+                    <p style={{ color: '#f59f00', fontSize: 13, margin: "16px 0 0", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+                        Finishing up... Waiting a few seconds so listeners hear your final words.
+                    </p>
+                )}
             </div>
         </div>
     );
@@ -902,16 +907,13 @@ export default function StudioPage() {
     const handleStopStream = async () => {
         // Set ending state to keep recording for 16s so listeners hear the final buffer
         setIsStopping(true);
-        notifications.show({
-            title: 'Finishing up...',
-            message: 'Waiting 16 seconds to ensure listeners hear your final words.',
-            color: 'orange',
-        });
+
+        // Immediately update dashboard to show stream has ended (no 16s wait for UI)
+        setIsLive(false);
 
         setTimeout(() => {
-            // Immediately update dashboard state (optimistic update)
             setIsMonitoring(false);
-            setMobileTab('setup'); // Auto-navigate back to setup tab
+            setMobileTab('setup');
             setStartTime(null);
             setListenerCount(0);
             setShowEndConfirmation(false);
@@ -931,7 +933,6 @@ export default function StudioPage() {
 
             // Clear localStorage
             localStorage.removeItem('streamState');
-            // Remove the ending state flag
             setIsStopping(false);
 
             console.log('Broadcast stopped');
@@ -940,7 +941,7 @@ export default function StudioPage() {
                 message: 'Your stream has ended successfully',
                 color: 'blue',
             });
-        }, 16000); // 16s buffer delay
+        }, 16000); // 16s buffer delay for listeners to hear final words
     };
 
     const handleLogout = async () => {
