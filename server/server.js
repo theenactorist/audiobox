@@ -249,10 +249,111 @@ exec(`${ffmpegCommand} -version`, (error, stdout, stderr) => {
     }
 });
 
+// Helper: Initialize FFmpeg for HLS transcoding of a stream.
+// Called lazily when the first audio chunk arrives — NOT during start-stream.
+// This guarantees FFmpeg's first bytes are always a valid WebM EBML header.
+function initFFmpeg(streamId) {
+    if (hlsStreams[streamId]) {
+        console.warn(`initFFmpeg called but FFmpeg already exists for ${streamId}, skipping`);
+        return hlsStreams[streamId];
+    }
+
+    const hlsPath = path.join(__dirname, 'hls');
+
+    // Ensure HLS directory exists
+    if (!fs.existsSync(hlsPath)) {
+        try {
+            fs.mkdirSync(hlsPath, { recursive: true });
+            console.log(`Created HLS directory at ${hlsPath}`);
+        } catch (err) {
+            console.error(`Failed to create HLS directory: ${err.message}`);
+            return null;
+        }
+    }
+
+    // Clean up any old segments for this stream to prevent stale audio loops
+    try {
+        const oldFiles = fs.readdirSync(hlsPath).filter(f => f.startsWith(streamId));
+        oldFiles.forEach(f => {
+            try {
+                fs.unlinkSync(path.join(hlsPath, f));
+                console.log(`Deleted old HLS file: ${f}`);
+            } catch (e) {
+                console.warn(`Could not delete ${f}:`, e.message);
+            }
+        });
+    } catch (e) {
+        console.warn('Error cleaning old HLS files:', e.message);
+    }
+
+    const playlistPath = path.join(hlsPath, `${streamId}.m3u8`);
+
+    try {
+        const inputStream = new PassThrough();
+
+        const ffmpegCmd = ffmpeg(inputStream)
+            .inputFormat('webm')
+            .inputOptions([
+                '-fflags +genpts',
+                '-async 1'
+            ])
+            .audioCodec('aac')
+            .audioBitrate('128k')
+            .outputOptions([
+                '-f hls',
+                '-hls_time 4',
+                '-hls_list_size 10',
+                '-hls_flags delete_segments+omit_endlist',
+                '-hls_segment_type mpegts'
+            ])
+            .output(playlistPath)
+            .on('start', (cmd) => {
+                console.log(`FFmpeg started for ${streamId}: ${cmd}`);
+            })
+            .on('codecData', (data) => {
+                console.log(`FFmpeg codec data for ${streamId}:`, data);
+            })
+            .on('progress', (progress) => {
+                if (Math.random() < 0.05) console.log(`FFmpeg progress for ${streamId}:`, progress);
+            })
+            .on('error', (err, stdout, stderr) => {
+                console.error(`FFmpeg error for ${streamId}:`, err.message);
+                console.error(`FFmpeg stderr:`, stderr);
+                // Only clean up if THIS instance is still the active one (prevents race conditions)
+                if (hlsStreams[streamId] && hlsStreams[streamId].ffmpegProcess === ffmpegCmd) {
+                    delete hlsStreams[streamId];
+                }
+            })
+            .on('end', () => {
+                console.log(`FFmpeg ended for ${streamId}`);
+                if (hlsStreams[streamId] && hlsStreams[streamId].ffmpegProcess === ffmpegCmd) {
+                    delete hlsStreams[streamId];
+                }
+            });
+
+        console.log(`Attempting to run FFmpeg command for ${streamId}...`);
+        ffmpegCmd.run();
+
+        const entry = {
+            ffmpegProcess: ffmpegCmd,
+            inputStream: inputStream
+        };
+        hlsStreams[streamId] = entry;
+
+        console.log(`HLS transcoding initialized for ${streamId}`);
+        return entry;
+    } catch (err) {
+        console.error(`CRITICAL ERROR initializing FFmpeg for ${streamId}:`, err);
+        return null;
+    }
+}
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     // Creator starts a stream with metadata
+    // NOTE: FFmpeg is NOT started here. It's initialized lazily in the audio-chunk handler
+    // when the first chunk arrives. This guarantees FFmpeg's first bytes are a valid EBML header.
     socket.on('start-stream', (data) => {
         const { streamId, title, description, userId, isPublic } = data;
 
@@ -269,12 +370,10 @@ io.on('connection', (socket) => {
             broadcasters[streamId].socketId = socket.id;
             socket.join(streamId);
 
-            // CRITICAL: After a browser crash, the new MediaRecorder produces a fresh WebM
-            // container with a new EBML header. The old FFmpeg process cannot parse a second
-            // EBML header mid-stream — its demuxer is locked to the original container.
-            // We MUST kill the old FFmpeg and start fresh so the new audio is actually processed.
+            // Kill old FFmpeg if it exists — the new MediaRecorder will produce a fresh
+            // WebM container and FFmpeg will be re-created lazily on the first new chunk.
             if (hlsStreams[streamId]) {
-                console.log(`Killing stale FFmpeg for ${streamId} — new MediaRecorder requires fresh demuxer`);
+                console.log(`Killing stale FFmpeg for ${streamId} — will restart lazily on first chunk`);
                 try {
                     hlsStreams[streamId].inputStream.end();
                     hlsStreams[streamId].ffmpegProcess.kill('SIGINT');
@@ -284,12 +383,13 @@ io.on('connection', (socket) => {
                 delete hlsStreams[streamId];
             }
 
-            // Clear pending chunks — the new MediaRecorder will send a fresh EBML header
+            // Clear pending chunks to ensure clean state
             pendingChunks[streamId] = [];
-            console.log(`Resuming stream ${streamId} with new socket ${socket.id} — restarting FFmpeg`);
-            // Fall through to create new FFmpeg process
+            console.log(`Resuming stream ${streamId} with new socket ${socket.id} — FFmpeg will start on first chunk`);
+            return; // Don't overwrite broadcaster metadata on resumption
         }
 
+        // New stream — register broadcaster
         broadcasters[streamId] = {
             socketId: socket.id,
             startTime: new Date().toISOString(),
@@ -300,118 +400,9 @@ io.on('connection', (socket) => {
             userId: userId || 'anonymous',
             isPublic: isPublic !== undefined ? isPublic : true
         };
-        // CRITICAL: Clear any leftover chunks from previous sessions so the new FFmpeg process 
-        // receives a fresh WebM EBML header first, preventing "Invalid data found" crashes.
         pendingChunks[streamId] = [];
         socket.join(streamId);
-        console.log(`Stream started: ${streamId} by ${socket.id} (User: ${userId})`);
-
-        // Initialize HLS transcoding for this stream
-        const hlsPath = path.join(__dirname, 'hls');
-
-        // Ensure HLS directory exists
-        if (!fs.existsSync(hlsPath)) {
-            try {
-                fs.mkdirSync(hlsPath, { recursive: true });
-                console.log(`Created HLS directory at ${hlsPath}`);
-            } catch (err) {
-                console.error(`Failed to create HLS directory: ${err.message}`);
-                return;
-            }
-        }
-
-        // Clean up any old segments for this stream to prevent loops
-        try {
-            const oldFiles = fs.readdirSync(hlsPath).filter(f => f.startsWith(streamId));
-            oldFiles.forEach(f => {
-                try {
-                    fs.unlinkSync(path.join(hlsPath, f));
-                    console.log(`Deleted old HLS file: ${f}`);
-                } catch (e) {
-                    console.warn(`Could not delete ${f}:`, e.message);
-                }
-            });
-        } catch (e) {
-            console.warn('Error cleaning old HLS files:', e.message);
-        }
-
-        const playlistPath = path.join(hlsPath, `${streamId}.m3u8`);
-
-        try {
-            // Create input stream
-            const inputStream = new PassThrough();
-
-            // Start FFmpeg process
-            const ffmpegCommand = ffmpeg(inputStream)
-                .inputFormat('webm')
-                .inputOptions([
-                    '-fflags +genpts', // Generate missing timestamps (crucial for live WebM chunks)
-                    '-async 1'         // Sync audio to timestamps
-                ])
-                .audioCodec('aac')
-                .audioBitrate('128k')
-                .outputOptions([
-                    '-f hls',
-                    '-hls_time 4',              // 4 second segments
-                    '-hls_list_size 10',        // Keep last 10 segments (40s buffer)
-                    '-hls_flags delete_segments+omit_endlist', // Delete old, never mark as ended
-                    '-hls_segment_type mpegts'  // Use MPEG-TS for segments
-                ])
-                .output(playlistPath)
-                .on('start', (cmd) => {
-                    console.log(`FFmpeg started for ${streamId}: ${cmd}`);
-                })
-                .on('codecData', (data) => {
-                    console.log(`FFmpeg codec data for ${streamId}:`, data);
-                })
-                .on('progress', (progress) => {
-                    // Log progress every few seconds to avoid spam
-                    if (Math.random() < 0.05) console.log(`FFmpeg progress for ${streamId}:`, progress);
-                })
-                .on('error', (err, stdout, stderr) => {
-                    console.error(`FFmpeg error for ${streamId}:`, err.message);
-                    console.error(`FFmpeg stderr:`, stderr);
-                    // RACE CONDITION FIX: Only clean up if THIS ffmpeg instance is still the active one.
-                    // When we restart FFmpeg (crash recovery), the old process fires on('error') async
-                    // AFTER the new process has already been stored in hlsStreams[streamId].
-                    // Without this check, the old callback deletes the new process's reference,
-                    // causing all new audio chunks to buffer forever with "waiting for FFmpeg".
-                    if (hlsStreams[streamId] && hlsStreams[streamId].ffmpegProcess === ffmpegCommand) {
-                        delete hlsStreams[streamId];
-                    }
-                })
-                .on('end', () => {
-                    console.log(`FFmpeg ended for ${streamId}`);
-                    if (hlsStreams[streamId] && hlsStreams[streamId].ffmpegProcess === ffmpegCommand) {
-                        delete hlsStreams[streamId];
-                    }
-                });
-
-            console.log(`Attempting to run FFmpeg command for ${streamId}...`);
-            ffmpegCommand.run();
-
-            hlsStreams[streamId] = {
-                ffmpegProcess: ffmpegCommand,
-                inputStream: inputStream
-            };
-
-            // Flush any buffered chunks
-            if (pendingChunks[streamId] && pendingChunks[streamId].length > 0) {
-                console.log(`Flushing ${pendingChunks[streamId].length} buffered chunks for ${streamId}`);
-                pendingChunks[streamId].forEach(chunk => {
-                    inputStream.write(chunk);
-                });
-                delete pendingChunks[streamId];
-            }
-
-            console.log(`HLS transcoding initialized for ${streamId}`);
-        } catch (err) {
-            console.error(`CRITICAL ERROR initializing FFmpeg for ${streamId}:`, err);
-            // Clean up broadcaster state if FFmpeg fails to start
-            delete broadcasters[streamId];
-            delete streamListeners[streamId];
-            socket.leave(streamId);
-        }
+        console.log(`Stream started: ${streamId} by ${socket.id} (User: ${userId}) — FFmpeg will start on first chunk`);
     });
 
     // Allow a monitoring device to take over the broadcast
@@ -468,36 +459,33 @@ io.on('connection', (socket) => {
     // Handle audio chunks from broadcaster
     socket.on('audio-chunk', (data) => {
         const { streamId, chunk } = data;
-        const hlsStream = hlsStreams[streamId];
 
-        // CRITICAL FIX: Prevent duplicate audio echoes!
-        // If a host had multiple tabs open or "took over" their own broadcast from a new tab,
-        // the old backgrounded tab might still be sending audio chunks natively. 
-        // We MUST verify that ONLY the officially registered active socket is allowed to write to FFmpeg.
+        // CRITICAL: Prevent duplicate audio echoes from unauthorized sockets
         if (broadcasters[streamId] && broadcasters[streamId].socketId !== socket.id) {
-            return; // Silently drop rogue chunks from unauthorized or old tabs
+            return;
+        }
+
+        const chunkBuffer = Buffer.from(chunk);
+
+        // LAZY FFMPEG INIT: Start FFmpeg on the FIRST audio chunk.
+        // This guarantees the EBML header is the first thing FFmpeg reads.
+        // No more race conditions, no more empty pipe crashes.
+        let hlsStream = hlsStreams[streamId];
+        if (!hlsStream) {
+            console.log(`First audio chunk for ${streamId} — initializing FFmpeg lazily`);
+            hlsStream = initFFmpeg(streamId);
+            if (!hlsStream) {
+                console.error(`Failed to initialize FFmpeg for ${streamId}, dropping chunk`);
+                return;
+            }
         }
 
         if (hlsStream && hlsStream.inputStream) {
-            // Write chunk to FFmpeg input stream
             try {
-                hlsStream.inputStream.write(Buffer.from(chunk));
+                hlsStream.inputStream.write(chunkBuffer);
             } catch (e) {
                 console.error(`Error writing chunk to FFmpeg for ${streamId}:`, e);
             }
-        } else {
-            // Buffer chunks if stream is not yet initialized (to catch the WebM header)
-            if (!pendingChunks[streamId]) {
-                pendingChunks[streamId] = [];
-            }
-            pendingChunks[streamId].push(Buffer.from(chunk));
-
-            // Limit buffer size to avoid memory leaks (e.g., 50 chunks)
-            if (pendingChunks[streamId].length > 50) {
-                pendingChunks[streamId].shift();
-            }
-
-            console.log(`Buffered chunk for ${streamId} (Total: ${pendingChunks[streamId].length}) - waiting for FFmpeg`);
         }
     });
 
