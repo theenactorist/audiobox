@@ -258,27 +258,36 @@ io.on('connection', (socket) => {
 
         // Check if this is a resumption of an existing stream
         if (broadcasters[streamId]) {
-            // Check if the HLS process is actually running
-            if (hlsStreams[streamId]) {
-                console.log(`Resuming stream ${streamId} with new socket ${socket.id} and EXISTING FFmpeg process`);
-
-                // Clear any pending disconnect timeout
-                if (disconnectTimeouts[streamId]) {
-                    clearTimeout(disconnectTimeouts[streamId]);
-                    delete disconnectTimeouts[streamId];
-                    console.log(`Cleared disconnect timeout for ${streamId}`);
-                }
-
-                // Update broadcaster socket ID
-                broadcasters[streamId].socketId = socket.id;
-                socket.join(streamId);
-                socket.emit('continue-stream');
-                return;
-            } else {
-                console.warn(`Resuming stream ${streamId} but FFmpeg process is MISSING. Restarting stream...`);
-                socket.emit('restart-stream');
-                // Fall through to create new FFmpeg process
+            // Clear any pending disconnect timeout
+            if (disconnectTimeouts[streamId]) {
+                clearTimeout(disconnectTimeouts[streamId]);
+                delete disconnectTimeouts[streamId];
+                console.log(`Cleared disconnect timeout for ${streamId}`);
             }
+
+            // Update broadcaster socket ID
+            broadcasters[streamId].socketId = socket.id;
+            socket.join(streamId);
+
+            // CRITICAL: After a browser crash, the new MediaRecorder produces a fresh WebM
+            // container with a new EBML header. The old FFmpeg process cannot parse a second
+            // EBML header mid-stream — its demuxer is locked to the original container.
+            // We MUST kill the old FFmpeg and start fresh so the new audio is actually processed.
+            if (hlsStreams[streamId]) {
+                console.log(`Killing stale FFmpeg for ${streamId} — new MediaRecorder requires fresh demuxer`);
+                try {
+                    hlsStreams[streamId].inputStream.end();
+                    hlsStreams[streamId].ffmpegProcess.kill('SIGINT');
+                } catch (e) {
+                    console.error(`Error killing old FFmpeg for ${streamId}:`, e);
+                }
+                delete hlsStreams[streamId];
+            }
+
+            // Clear pending chunks — the new MediaRecorder will send a fresh EBML header
+            pendingChunks[streamId] = [];
+            console.log(`Resuming stream ${streamId} with new socket ${socket.id} — restarting FFmpeg`);
+            // Fall through to create new FFmpeg process
         }
 
         broadcasters[streamId] = {
