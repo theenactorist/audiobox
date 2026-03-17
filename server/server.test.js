@@ -125,3 +125,43 @@ describe('Stream Lifecycle', () => {
         expect(serverSource).toContain('pendingChunks[streamId] = []');
     });
 });
+
+describe('Chunk Gap Detection', () => {
+    test('should track lastChunkTime per stream', () => {
+        expect(serverSource).toContain('lastChunkTime[streamId]');
+    });
+
+    test('should track chunkGapState per stream', () => {
+        expect(serverSource).toContain('chunkGapState[streamId]');
+    });
+
+    test('should use 10-second gap threshold', () => {
+        expect(serverSource).toContain('GAP_THRESHOLD_MS = 10000');
+    });
+
+    test('should log [Chunk Gap] with gap duration when chunks resume', () => {
+        expect(serverSource).toContain('[Chunk Gap]');
+        expect(serverSource).toContain('Chunks resumed after');
+    });
+
+    test('should include ISO timestamp of last chunk in gap log', () => {
+        expect(serverSource).toContain('new Date(lastChunkTime[streamId]).toISOString()');
+    });
+
+    test('should clean up lastChunkTime on stream end', () => {
+        expect(serverSource).toContain('delete lastChunkTime[streamId]');
+    });
+
+    test('should clean up chunkGapState on stream end', () => {
+        expect(serverSource).toContain('delete chunkGapState[streamId]');
+    });
+
+    // Regression: gap detection should not interfere with lazy FFmpeg init
+    test('gap detection should run before FFmpeg init check', () => {
+        const gapIndex = serverSource.indexOf('GAP_THRESHOLD_MS');
+        const ffmpegIndex = serverSource.indexOf('LAZY FFMPEG INIT');
+        expect(gapIndex).toBeGreaterThan(-1);
+        expect(ffmpegIndex).toBeGreaterThan(-1);
+        expect(gapIndex).toBeLessThan(ffmpegIndex);
+    });
+});

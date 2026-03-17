@@ -205,6 +205,8 @@ const gracePeriodTimeouts = {}; // streamId -> timeoutId for end-stream grace pe
 const pendingChunks = {}; // streamId -> [Buffer]
 const streamListeners = {}; // streamId -> Set<socketId> — tracks unique listeners
 const socketStreams = {}; // socketId -> Set<streamId> — tracks which streams a socket joined
+const lastChunkTime = {}; // streamId -> timestamp (ms) of last received audio chunk
+const chunkGapState = {}; // streamId -> { inGap: boolean, gapStart: number } — tracks whether we're in a gap
 
 // Add stream to history
 function addToHistory(streamData) {
@@ -517,7 +519,29 @@ io.on('connection', (socket) => {
             return;
         }
 
+        const now = Date.now();
         const chunkBuffer = Buffer.from(chunk);
+
+        // --- Chunk Gap Detection ---
+        // Only log when gaps start/end to avoid flooding logs
+        const GAP_THRESHOLD_MS = 10000; // 10 seconds = 2+ missed 4s chunks
+        if (lastChunkTime[streamId]) {
+            const delta = now - lastChunkTime[streamId];
+            if (delta > GAP_THRESHOLD_MS) {
+                if (!chunkGapState[streamId]?.inGap) {
+                    // Gap just detected (on the chunk that arrives after the silence)
+                    chunkGapState[streamId] = { inGap: true, gapStart: lastChunkTime[streamId] };
+                }
+                // Log the resume
+                const gapSec = (delta / 1000).toFixed(1);
+                console.log(`[Chunk Gap] Stream ${streamId}: Chunks resumed after ${gapSec}s gap (last chunk at ${new Date(lastChunkTime[streamId]).toISOString()})`);
+                chunkGapState[streamId] = { inGap: false, gapStart: 0 };
+            } else if (chunkGapState[streamId]?.inGap) {
+                // Was in gap but now chunks are flowing normally
+                chunkGapState[streamId] = { inGap: false, gapStart: 0 };
+            }
+        }
+        lastChunkTime[streamId] = now;
 
         // LAZY FFMPEG INIT: Start FFmpeg on the FIRST audio chunk.
         // This guarantees the EBML header is the first thing FFmpeg reads.
@@ -667,6 +691,8 @@ io.on('connection', (socket) => {
 
             // Remove broadcaster record immediately (prevents new listeners from joining)
             delete broadcasters[streamId];
+            delete lastChunkTime[streamId];
+            delete chunkGapState[streamId];
 
             // Step 2: Grace period — let listeners consume remaining buffered audio
             // HLS has ~16-20s latency, so listeners need time to hear the final segments.
@@ -764,6 +790,8 @@ io.on('connection', (socket) => {
                     });
 
                     delete broadcasters[streamId];
+                    delete lastChunkTime[streamId];
+                    delete chunkGapState[streamId];
                     delete streamListeners[streamId];
                     delete disconnectTimeouts[streamId];
                     io.to(streamId).emit('stream-ended');
