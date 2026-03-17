@@ -134,7 +134,8 @@ app.get('/api/active-streams', (req, res) => {
                 startTime: broadcaster.startTime,
                 listenerCount: broadcaster.currentListeners,
                 hlsUrl: `https://audiobox-thenew.b-cdn.net/hls/${streamId}.m3u8`,
-                userId: broadcaster.userId
+                userId: broadcaster.userId,
+                hostPlatform: broadcaster.hostDevice ? broadcaster.hostDevice.platform : 'unknown'
             });
         }
         // CRITICAL BUG FIX: Removed the "else" block that deleted streams without an m3u8 file.
@@ -364,7 +365,19 @@ io.on('connection', (socket) => {
     // NOTE: FFmpeg is NOT started here. It's initialized lazily in the audio-chunk handler
     // when the first chunk arrives. This guarantees FFmpeg's first bytes are a valid EBML header.
     socket.on('start-stream', (data) => {
-        const { streamId, title, description, userId, isPublic } = data;
+        const { streamId, title, description, userId, isPublic, deviceInfo } = data;
+
+        // Build device summary for logging
+        const socketUA = socket.handshake?.headers?.['user-agent'] || 'unknown';
+        const hostDevice = deviceInfo ? {
+            platform: deviceInfo.platform,       // 'web' or 'app-android' or 'app-ios'
+            userAgent: deviceInfo.userAgent || socketUA,
+            screen: `${deviceInfo.screenWidth}x${deviceInfo.screenHeight}`,
+        } : {
+            platform: 'unknown (old client)',
+            userAgent: socketUA,
+            screen: 'unknown',
+        };
 
         // Check if this is a resumption of an existing stream
         if (broadcasters[streamId]) {
@@ -402,7 +415,7 @@ io.on('connection', (socket) => {
 
             // Clear pending chunks to ensure clean state
             pendingChunks[streamId] = [];
-            console.log(`Resuming stream ${streamId} with new socket ${socket.id} — FFmpeg will start on first chunk`);
+            console.log(`Resuming stream ${streamId} with new socket ${socket.id} [${hostDevice.platform}] — FFmpeg will start on first chunk`);
             return; // Don't overwrite broadcaster metadata on resumption
         }
 
@@ -421,11 +434,12 @@ io.on('connection', (socket) => {
             currentListeners: 0,
             peakListeners: 0,
             userId: userId || 'anonymous',
-            isPublic: isPublic !== undefined ? isPublic : true
+            isPublic: isPublic !== undefined ? isPublic : true,
+            hostDevice: hostDevice
         };
         pendingChunks[streamId] = [];
         socket.join(streamId);
-        console.log(`Stream started: ${streamId} by ${socket.id} (User: ${userId}) — FFmpeg will start on first chunk`);
+        console.log(`Stream started: ${streamId} by ${socket.id} (User: ${userId}) [Platform: ${hostDevice.platform}] [Screen: ${hostDevice.screen}] [UA: ${hostDevice.userAgent.substring(0, 80)}] — FFmpeg will start on first chunk`);
     });
 
     // Allow a monitoring device to take over the broadcast
@@ -666,7 +680,8 @@ io.on('connection', (socket) => {
                 io.to(streamId).emit('stream-ended');
                 delete streamListeners[streamId];
                 delete gracePeriodTimeouts[streamId];
-                console.log(`Stream ended (after grace period): ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}`);
+                const deviceLabel = broadcaster.hostDevice ? broadcaster.hostDevice.platform : 'unknown';
+                console.log(`Stream ended (after grace period): ${streamId}. Duration: ${duration}s, Peak: ${broadcaster.peakListeners}, Host: ${deviceLabel}`);
             }, GRACE_PERIOD_MS);
         }
     });

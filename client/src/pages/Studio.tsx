@@ -319,6 +319,14 @@ export default function StudioPage() {
     const { stream, startStream, volume, isMuted, updateVolume, toggleMute, audioContext } = useAudioStream();
     const keepAlive = useKeepAlive();
 
+    // Helper: Collect device info for server-side logging
+    const getDeviceInfo = () => ({
+        userAgent: navigator.userAgent,
+        platform: Capacitor.isNativePlatform() ? `app-${Capacitor.getPlatform()}` : 'web',
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
+    });
+
     // Prevent hydration mismatch by only rendering after mount
     useEffect(() => {
         setIsMounted(true);
@@ -432,7 +440,8 @@ export default function StudioPage() {
                     title: titleRef.current,
                     description: descriptionRef.current,
                     isPublic: isPublic,
-                    userId: user?.id
+                    userId: user?.id,
+                    deviceInfo: getDeviceInfo()
                 });
             } else if (isLiveRef.current && isMonitoringRef.current) {
                 console.log('Socket reconnected in monitoring mode. Rejoining stream room only...');
@@ -611,7 +620,8 @@ export default function StudioPage() {
                 title: titleRef.current,
                 description: descriptionRef.current,
                 isPublic: isPublic,
-                userId: user?.id
+                userId: user?.id,
+                deviceInfo: getDeviceInfo()
             });
 
             notifications.show({
@@ -693,7 +703,8 @@ export default function StudioPage() {
                 title: title || 'Untitled Stream',
                 description: description || '',
                 isPublic: isPublic,
-                userId: user?.id
+                userId: user?.id,
+                deviceInfo: getDeviceInfo()
             });
 
             // Save state to localStorage
