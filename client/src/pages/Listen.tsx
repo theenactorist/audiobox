@@ -285,8 +285,8 @@ export default function ListenerPage() {
                 enableWorker: true,
                 lowLatencyMode: false,
                 backBufferLength: 90,
-                maxBufferLength: 60,
-                liveSyncDurationCount: 2, // Start playing with just 2 segments (8s) — helps after FFmpeg restart
+                maxBufferLength: 30,
+                liveSyncDurationCount: 3, // Start playing with 3 segments (12s) — cushion for mobile network jitter
                 liveMaxLatencyDurationCount: 10,
                 liveDurationInfinity: true, // Prevents HLS.js from trimming the live edge too aggressively
                 manifestLoadingTimeOut: 10000,
@@ -455,10 +455,34 @@ export default function ListenerPage() {
                 }
             }
 
-            // Sync play initiation to satisfy iOS/Safari user interaction policies
-            await audioRef.current.play();
-            setIsPlaying(true);
-            setPlayLoading(false);
+            // CRITICAL: Wrap play() in a timeout so we don't hang forever on "Connecting..."
+            // when the host has stalled and HLS.js can't buffer enough data.
+            const playWithTimeout = (timeoutMs: number) => {
+                return Promise.race([
+                    audioRef.current!.play(),
+                    new Promise<void>((_, reject) =>
+                        setTimeout(() => reject(new Error('PLAY_TIMEOUT')), timeoutMs)
+                    )
+                ]);
+            };
+
+            try {
+                await playWithTimeout(8000);
+                setIsPlaying(true);
+                setPlayLoading(false);
+            } catch (playError: unknown) {
+                const errMsg = playError instanceof Error ? playError.message : String(playError);
+                if (errMsg === 'PLAY_TIMEOUT') {
+                    console.warn('Play timed out after 8s — stream may be stalled');
+                    // Stop the pending play to clean up
+                    audioRef.current?.pause();
+                    setPlayLoading(false);
+                    // Show user-friendly feedback via a retry prompt
+                    alert('The stream seems to be buffering or paused. Please try again in a moment.');
+                } else {
+                    throw playError; // Re-throw non-timeout errors to the outer catch
+                }
+            }
         } catch (error) {
             console.error("Play failed:", error);
 

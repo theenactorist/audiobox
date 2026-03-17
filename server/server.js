@@ -301,6 +301,7 @@ function initFFmpeg(streamId) {
             ])
             .audioCodec('aac')
             .audioBitrate('128k')
+            .audioFrequency(48000)
             .outputOptions([
                 '-f hls',
                 '-hls_time 4',
