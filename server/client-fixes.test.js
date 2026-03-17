@@ -184,6 +184,15 @@ describe('Studio.tsx - Device Info', () => {
         expect(studioSource).toContain('Capacitor.isNativePlatform()');
     });
 
+    test('should distinguish web-desktop from web-mobile', () => {
+        expect(studioSource).toContain("'web-mobile'");
+        expect(studioSource).toContain("'web-desktop'");
+    });
+
+    test('should check user-agent for mobile patterns', () => {
+        expect(studioSource).toContain('Mobi|Android|iPhone|iPad');
+    });
+
     test('should include screen dimensions', () => {
         expect(studioSource).toContain('window.screen.width');
         expect(studioSource).toContain('window.screen.height');
@@ -201,5 +210,12 @@ describe('Studio.tsx - Device Info', () => {
     // Regression: wake lock should still be used
     test('should still use wake lock for screen', () => {
         expect(studioSource).toContain("wakeLock.request('screen')");
+    });
+
+    // Regression: should NOT produce just 'web' as platform anymore
+    test('should NOT produce bare web platform (must be web-desktop or web-mobile)', () => {
+        // Ensure the old pattern is gone
+        const hasOldPattern = /platform.*:\s*['"]web['"]/.test(studioSource);
+        expect(hasOldPattern).toBe(false);
     });
 });

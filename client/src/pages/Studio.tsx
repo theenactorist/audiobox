@@ -320,12 +320,21 @@ export default function StudioPage() {
     const keepAlive = useKeepAlive();
 
     // Helper: Collect device info for server-side logging
-    const getDeviceInfo = () => ({
-        userAgent: navigator.userAgent,
-        platform: Capacitor.isNativePlatform() ? `app-${Capacitor.getPlatform()}` : 'web',
-        screenWidth: window.screen.width,
-        screenHeight: window.screen.height,
-    });
+    const getDeviceInfo = () => {
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent);
+        let platform: string;
+        if (Capacitor.isNativePlatform()) {
+            platform = `app-${Capacitor.getPlatform()}`; // 'app-android' or 'app-ios'
+        } else {
+            platform = isMobile ? 'web-mobile' : 'web-desktop';
+        }
+        return {
+            userAgent: navigator.userAgent,
+            platform,
+            screenWidth: window.screen.width,
+            screenHeight: window.screen.height,
+        };
+    };
 
     // Prevent hydration mismatch by only rendering after mount
     useEffect(() => {
