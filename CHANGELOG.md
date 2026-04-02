@@ -2,12 +2,21 @@
 
 All notable changes to the AudioBox livestream functionality will be documented in this file.
 
-## [Unreleased] - 2026-03-03
+## [1.1.0] - 2026-04-02
+
+### Stability & Bug Fixes
+- **Desktop Tab Throttling Fix:** Fixed a critical issue where Chrome on desktop laptops would aggressively throttle the AudioBox tab when the host switched to another tab or used split-screen — especially on battery power. This starved the `MediaRecorder` of timer ticks, causing audio chunks to stop flowing to the server. When the socket eventually reconnected, a new WebM EBML header corrupted the FFmpeg pipe, killing audio for all listeners.
+  - **Root cause:** The `keepAlive` module (silent audio loop + Media Session API) was only activated on mobile devices. Desktop browsers were left unprotected against background tab throttling.
+  - **Fix:** `keepAlive` now activates on **all platforms** (desktop + mobile). The near-silent audio loop signals to Chrome/Firefox/Safari that the tab is an active media player and should not be throttled.
+  - This fix also protects Firefox and Safari desktop hosts from similar throttling behaviour.
+
+---
+
+## [1.0.0] - 2026-03-03
 
 ### Performance Improvements
 - **Studio Resource Leaks Fixed:** Major browser heaviness and CPU usage spikes during broadcasting have been resolved:
   - The visualizer now properly reuses the main `AudioContext` instead of spawning new instances every time the microphone stream changes.
-  - The background `keepAlive` audio loop is now strictly confined to mobile devices (iOS/Android), preventing unnecessary overhead on desktop browsers.
   - Reduced the `AnalyserNode` `fftSize` from 256 to 64, as we only need a few frequency bins.
 - **Lightweight Visualizer:** Replaced the heavy 60fps canvas-based 48-bar visualizer with a highly optimized 8-bar CSS transition visualizer running at 7fps. This reduced CPU usage in the Studio by over 90%.
 
