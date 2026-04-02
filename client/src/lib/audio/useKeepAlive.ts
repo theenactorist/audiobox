@@ -1,19 +1,25 @@
 import { useRef, useCallback } from 'react';
 
 /**
- * useKeepAlive — Mobile Background Audio Keep-Alive (iOS + Android)
+ * useKeepAlive — Background Audio Keep-Alive (All Platforms)
  * 
  * Plays a near-silent audio loop via a hidden <audio> element when activated.
- * This signals to mobile OSes that the tab is an active media player, making them
- * less aggressive about suspending JavaScript execution when the tab is backgrounded.
+ * This signals to browsers (especially Chrome) that the tab is an active media
+ * player, preventing aggressive background tab throttling that would starve
+ * the MediaRecorder of timer ticks and kill the audio stream.
  * 
- * Also registers a Media Session API handler so Chrome Android shows the
- * broadcast in the notification shade and treats the tab as a foreground media task.
+ * On desktop: Chrome throttles unfocused/split-screen tabs — even more so on
+ * battery — and will stop firing MediaRecorder.ondataavailable if it considers
+ * the tab inactive. The silent audio loop prevents this.
+ * 
+ * On mobile: iOS Safari and Android Chrome additionally suspend JS execution
+ * entirely when backgrounded. The audio loop + Media Session API keep the
+ * tab alive in the notification shade.
  * 
  * Layers:
- *   1. Silent audio loop — keeps JS alive on iOS Safari and Android Chrome
+ *   1. Silent audio loop — keeps JS alive across all browsers
  *   2. MediaStream attachment — makes Safari treat page as live audio player
- *   3. Media Session API — registers with Android's media notification system
+ *   3. Media Session API / Native Foreground Service — OS-level keep-alive
  */
 
 // Tiny silent WAV file encoded as base64 (44 bytes header + minimal silence)

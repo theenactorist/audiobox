@@ -754,12 +754,12 @@ export default function StudioPage() {
             mediaRecorder.start(4000); // 4-second chunks align perfectly with FFmpeg's 4-second HLS segments
             mediaRecorderRef.current = mediaRecorder;
 
-            // Activate mobile background keep-alive (Layers 1 & 2)
-            // Only on mobile — on desktop it wastes CPU with silent audio loops
-            // Must be called here inside the click handler for iOS autoplay policy
-            if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                keepAlive.activate(stream);
-            }
+            // Activate background keep-alive on ALL platforms (Layers 1–3)
+            // Chrome aggressively throttles unfocused/background tabs — even on desktop —
+            // which starves the MediaRecorder of timer ticks and kills the audio stream.
+            // The silent audio loop signals to Chrome this is an active media tab.
+            // Must be called here inside the click handler for iOS autoplay policy.
+            keepAlive.activate(stream);
 
             setIsLive(true);
             setMobileTab('live'); // Auto-navigate to live tab on mobile
@@ -917,7 +917,7 @@ export default function StudioPage() {
             mediaRecorderRef.current = null;
         }
 
-        // Deactivate iOS background keep-alive immediately
+        // Deactivate background keep-alive immediately
         keepAlive.deactivate();
 
         // Delay the server-side end-stream for the listener grace period.
