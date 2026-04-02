@@ -26,6 +26,18 @@ const linkFont = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wgh
 
 const releases = [
     {
+        date: "April 2, 2026",
+        title: "Rock-Solid Desktop Broadcasting",
+        icon: <IconSparkles size={24} color={COLORS.blue} />,
+        iconBg: COLORS.blueBg,
+        iconBorder: COLORS.blueBorder,
+        updates: [
+            { type: "fix", text: "Fixed a critical issue where the stream would silently die for listeners when the host's browser tab lost focus — especially on laptops running on battery or using split-screen." },
+            { type: "fix", text: "The background keep-alive system (silent audio loop + Media Session API) now activates on all platforms — desktop included — so Chrome, Firefox, and Safari no longer throttle the broadcasting tab." },
+            { type: "improvement", text: "Desktop hosts can now safely switch tabs, use split-screen, or let their laptop idle without worrying about the stream dropping." },
+        ]
+    },
+    {
         date: "March 3, 2026",
         title: "Massive Performance Boost & Bulletproof Reliability",
         icon: <IconSparkles size={24} color={COLORS.blue} />,
