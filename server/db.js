@@ -58,9 +58,13 @@ try {
 
 // Seed admin account on startup
 const ADMIN_EMAIL = 'livestream.thenew@gmail.com';
-// In production, fallback to the secure default. In local dev, use the placeholder.
-const isProd = process.env.NODE_ENV === 'production';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (isProd ? 'wearethenewvoiceAI09' : 'local_dev_only_password_change_me');
+// Critical Security Fix: Never hardcode the production password.
+if (isProd && !process.env.ADMIN_PASSWORD) {
+    console.error("FATAL: ADMIN_PASSWORD environment variable is missing in production.");
+    process.exit(1);
+}
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'local_dev_only_password_change_me';
 
 (async () => {
     try {
