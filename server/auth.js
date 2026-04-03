@@ -38,9 +38,27 @@ function authenticateToken(req, res, next) {
     }
 }
 
+// Rate Limiter for Login (5 attempts per 15 mins)
+const loginAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
 // POST /api/auth/login — admin only
 router.post('/login', async (req, res) => {
     try {
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        
+        // 1. Check rate limit
+        const attempt = loginAttempts.get(ip);
+        if (attempt && attempt.count >= MAX_ATTEMPTS) {
+            if (Date.now() - attempt.lastAttempt < LOCKOUT_MS) {
+                const minutesLeft = Math.ceil((LOCKOUT_MS - (Date.now() - attempt.lastAttempt)) / 60000);
+                return res.status(429).json({ error: `Too many failed attempts. Try again in ${minutesLeft} minutes.` });
+            } else {
+                loginAttempts.delete(ip); // Lockout expired
+            }
+        }
+
         const { password } = req.body;
 
         if (!password) {
@@ -50,14 +68,19 @@ router.post('/login', async (req, res) => {
         // Only allow login for the admin account
         const user = db.prepare('SELECT * FROM users WHERE email = ?').get(ADMIN_EMAIL);
         if (!user) {
-            return res.status(401).json({ error: 'Admin account not configured. Please set ADMIN_PASSWORD env var and restart.' });
+            return res.status(401).json({ error: 'Admin account not configured.' });
         }
 
         // Verify password
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) {
+            const currentAttempt = loginAttempts.get(ip) || { count: 0, lastAttempt: Date.now() };
+            loginAttempts.set(ip, { count: currentAttempt.count + 1, lastAttempt: Date.now() });
             return res.status(401).json({ error: 'Invalid password' });
         }
+
+        // Successful login — reset limiter
+        loginAttempts.delete(ip);
 
         const userData = { id: user.id, email: user.email };
         const token = generateToken(userData);

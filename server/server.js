@@ -27,7 +27,7 @@ try {
     // dotenv is optional in production
 }
 const db = require('./db');
-const { router: authRouter } = require('./auth');
+const { router: authRouter, authenticateToken } = require('./auth');
 
 const app = express();
 
@@ -35,8 +35,14 @@ const app = express();
 app.use(express.json());
 
 // Handle CORS
+const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:5173';
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
+    const origin = req.headers.origin;
+    if (origin === ALLOWED_ORIGIN || origin === 'http://localhost:5173') {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -53,7 +59,7 @@ app.use('/api/auth', authRouter);
 // Serve HLS files with CORS headers
 app.use('/hls', express.static(path.join(__dirname, 'hls'), {
     setHeaders: (res, filePath, stat) => {
-        res.set('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
+        res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
         res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
         // Prevent caching of m3u8 playlists for live streaming
@@ -67,8 +73,13 @@ app.use('/hls', express.static(path.join(__dirname, 'hls'), {
 }));
 
 // Serve stream history
-app.get('/api/history', (req, res) => {
+app.get('/api/history', authenticateToken, (req, res) => {
     const userId = req.query.userId;
+
+    // IDOR protection
+    if (userId && userId !== req.user.id) {
+        return res.status(403).json({ error: 'Forbidden: Cannot access other users history' });
+    }
 
     try {
         let stmt;
@@ -193,7 +204,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.FRONTEND_URL || "*",
+        origin: process.env.FRONTEND_URL || "http://localhost:5173",
         methods: ["GET", "POST"]
     }
 });

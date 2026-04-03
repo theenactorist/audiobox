@@ -359,7 +359,13 @@ export default function StudioPage() {
         const fetchHistory = async () => {
             try {
                 const baseUrl = getServerUrl();
-                const response = await fetch(`${baseUrl}/api/history?userId=${user?.id}`);
+                const token = localStorage.getItem('audiobox_token');
+                const response = await fetch(`${baseUrl}/api/history?userId=${user?.id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!response.ok) throw new Error('Unauthorized');
                 const data = await response.json();
                 setHistoryData(data);
             } catch (err) {
