@@ -34,15 +34,33 @@ const app = express();
 // Parse JSON bodies
 app.use(express.json());
 
-// Handle CORS
-const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Handle CORS — allowlist approach for multi-origin architecture
+// (same-origin app + cross-origin CDN HLS fetches)
+const ALLOWED_ORIGINS = new Set([
+    'http://localhost:5173',
+    'http://localhost:3001',
+    'https://audiobox.wearethenew.org',
+]);
+// Add the production frontend URL(s) if configured
+if (process.env.FRONTEND_URL) {
+    ALLOWED_ORIGINS.add(process.env.FRONTEND_URL);
+}
+// Also allow the Railway-assigned URL if available
+if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    ALLOWED_ORIGINS.add(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+}
+
 app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin === ALLOWED_ORIGIN || origin === 'http://localhost:5173') {
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+    } else if (!origin) {
+        // No origin header = same-origin request or non-browser (curl, CDN pull, etc.)
+        // Allow these through — they aren't subject to CORS anyway
+        res.setHeader('Access-Control-Allow-Origin', '*');
     }
+    // If origin is present but NOT in the allowlist, we intentionally
+    // do NOT set the header, so the browser blocks the request.
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -56,10 +74,12 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRouter);
 
 // Serve HLS files with CORS headers
-// Serve HLS files with CORS headers
+// CDN pull-zone fetches these server-to-server (no Origin header),
+// but browser direct-fetches also happen. Allow all origins for
+// public audio content — no secrets here.
 app.use('/hls', express.static(path.join(__dirname, 'hls'), {
     setHeaders: (res, filePath, stat) => {
-        res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+        res.set('Access-Control-Allow-Origin', '*');
         res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
         // Prevent caching of m3u8 playlists for live streaming
@@ -204,7 +224,13 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:5173",
+        origin: (origin, callback) => {
+            if (!origin || ALLOWED_ORIGINS.has(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error('CORS not allowed'));
+            }
+        },
         methods: ["GET", "POST"]
     }
 });
